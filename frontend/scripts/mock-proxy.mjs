@@ -1418,10 +1418,14 @@ let mockSBPolicyExists = false;
 let mockSBSettings = {
 	enabled: false,
 	policyName: '',
+	deviceMode: 'policy',
+	snifferEnabled: true,
 	refreshMode: 'interval',
 	refreshIntervalHours: 24,
 	wanAutoDetect: true,
 	wanInterface: '',
+	bypassPresets: [],
+	bypassExtraPorts: '',
 };
 
 // WAN interfaces returned by GET /singbox/router/wan-interfaces. Mix of
@@ -1906,12 +1910,21 @@ const mockRoutingTunnels = [
 ];
 
 const mockSingboxRules = [
+	// System rules — always first
 	{ action: 'sniff' },
 	{ action: 'hijack-dns', protocol: 'dns' },
-	{ action: 'route', domain_suffix: ['youtube.com', 'ytimg.com'], outbound: 'sub-demo0001' },
-	{ action: 'route', rule_set: ['geosite-openai'], outbound: 'sub-demo0001' },
-	{ action: 'route', domain_suffix: ['github.com'], outbound: 'direct' },
-	{ action: 'reject', domain_suffix: ['ads.example'] },
+	// Local LAN bypass — ip_is_private system rule
+	{ ip_is_private: true, outbound: 'direct' },
+	// Netflix — domain_suffix + tunnel outbound
+	{ action: 'route', domain_suffix: ['netflix.com', 'nflxext.com', 'nflxvideo.net', 'nflximg.net'], outbound: 'warp' },
+	// YouTube — domain_suffix + tunnel outbound
+	{ action: 'route', domain_suffix: ['youtube.com', 'googlevideo.com', 'ytimg.com', 'youtu.be'], outbound: 'warp' },
+	// Telegram — rule_set chip + tunnel outbound
+	{ action: 'route', rule_set: ['geosite-telegram'], outbound: 'warp' },
+	// Ads block — reject action
+	{ action: 'reject', domain_suffix: ['ads.example.com', 'doubleclick.net', 'googleadservices.com'] },
+	// Custom CIDR — ip_cidr + tunnel outbound
+	{ action: 'route', ip_cidr: ['10.0.0.0/8', '172.16.0.0/12'], outbound: 'warp' },
 ];
 
 const mockSingboxRuleSets = [
@@ -1920,6 +1933,7 @@ const mockSingboxRuleSets = [
 	{ tag: 'geosite-openai', type: 'remote', format: 'binary', url: 'https://cdn.example.com/geosite-openai.srs', update_interval: '24h', download_detour: 'direct' },
 	{ tag: 'geosite-discord', type: 'remote', format: 'binary', url: 'https://cdn.example.com/geosite-discord.srs', update_interval: '24h', download_detour: 'direct' },
 	{ tag: 'geosite-github', type: 'remote', format: 'binary', url: 'https://cdn.example.com/geosite-github.srs', update_interval: '24h', download_detour: 'direct' },
+	{ tag: 'geosite-telegram', type: 'remote', format: 'binary', url: 'https://cdn.example.com/geosite-telegram.srs', update_interval: '24h', download_detour: 'direct' },
 	{ tag: 'geoip-ru', type: 'remote', format: 'binary', url: 'https://cdn.example.com/geoip-ru.srs', update_interval: '24h', download_detour: 'direct' },
 	{
 		tag: 'inline-neo-demo',
@@ -1941,6 +1955,41 @@ const mockSingboxRuleSets = [
 		],
 	},
 ];
+
+// Outbounds for /singbox/router/outbounds/list.
+// "warp" is an AWG/WireGuard tunnel outbound; "group-1" is a selector
+// composite. Both are referenced by mockSingboxRules above.
+const mockSingboxOutbounds = [
+	{
+		type: 'direct',
+		tag: 'direct',
+		source: 'router',
+	},
+	{
+		type: 'urltest',
+		tag: 'warp',
+		outbounds: ['awg-vpn0', 'awg-sys-Wireguard0', 'awg-sys-Wireguard1'],
+		url: 'https://www.gstatic.com/generate_204',
+		interval: '3m',
+		tolerance: 50,
+		source: 'router',
+	},
+	{
+		type: 'selector',
+		tag: 'group-1',
+		outbounds: ['awg-vpn0', 'awg-sys-Wireguard0', 'awg-sys-Wireguard1'],
+		default: 'awg-vpn0',
+		source: 'router',
+	},
+];
+
+// DNS globals for /singbox/router/dns/globals.
+let mockDNSGlobals = {
+	strategy: 'prefer_ipv4',
+	disableExpire: false,
+	independentCache: false,
+	final: 'wizard-upstream',
+};
 
 const mockSingboxPresets = [
 	{ id: 'preset-youtube', name: 'YouTube', category: 'media', iconSlug: 'youtube', ruleSets: [{ tag: 'geosite-youtube', url: 'https://cdn.example.com/geosite-youtube.srs' }], rules: [{ ruleSetRef: 'geosite-youtube', actionTarget: 'tunnel' }] },
@@ -3142,6 +3191,48 @@ const server = http.createServer(async (req, res) => {
 		return;
 	}
 
+	if (req.method === 'GET' && path === '/singbox/router/outbounds/list') {
+		send(res, 200, { success: true, data: mockSingboxOutbounds });
+		return;
+	}
+
+	if (req.method === 'GET' && path === '/singbox/router/dns/globals') {
+		send(res, 200, { success: true, data: mockDNSGlobals });
+		return;
+	}
+
+	if ((req.method === 'POST' || req.method === 'PUT') && path === '/singbox/router/dns/globals') {
+		let raw = '';
+		req.on('data', (c) => (raw += c));
+		req.on('end', () => {
+			try {
+				const payload = JSON.parse(raw || '{}');
+				mockDNSGlobals = { ...mockDNSGlobals, ...payload };
+				send(res, 200, { success: true, data: { ok: true } });
+			} catch (e) {
+				send(res, 400, { success: false, error: { code: 'INVALID_REQUEST', message: String(e) } });
+			}
+		});
+		return;
+	}
+
+	if ((req.method === 'POST' || req.method === 'PUT') && path === '/singbox/router/route/final') {
+		let raw = '';
+		req.on('data', (c) => (raw += c));
+		req.on('end', () => {
+			try {
+				const payload = JSON.parse(raw || '{}');
+				if (payload.outbound) {
+					console.log(`[mock-proxy] route/final → ${payload.outbound}`);
+				}
+				send(res, 200, { success: true, data: { ok: true } });
+			} catch (e) {
+				send(res, 400, { success: false, error: { code: 'INVALID_REQUEST', message: String(e) } });
+			}
+		});
+		return;
+	}
+
 	if (req.method === 'GET' && path === '/singbox/router/policies') {
 		const policies = mockSBPolicyExists ? [{ name: 'SBRouter', description: 'wizard' }] : [];
 		send(res, 200, { success: true, data: policies });
@@ -3335,7 +3426,20 @@ const server = http.createServer(async (req, res) => {
 				version: '1.13.11',
 				configValid: true,
 				netfilterAvailable: true,
+				netfilterComponentName: 'nftables',
+				tproxyTargetAvailable: true,
 				policyName: mockSBPolicyExists ? 'SBRouter' : '',
+				policyMark: '0x64',
+				policyExists: mockSBPolicyExists,
+				deviceMode: mockSBSettings.deviceMode ?? 'policy',
+				snifferEnabled: mockSBSettings.snifferEnabled ?? true,
+				deviceCount: 2,
+				ruleCount: mockSingboxRules.length,
+				ruleSetCount: mockSingboxRuleSets.length,
+				outboundAwgCount: 1,
+				outboundCompositeCount: 1,
+				final: 'warp',
+				issues: [],
 			},
 		});
 		return;
