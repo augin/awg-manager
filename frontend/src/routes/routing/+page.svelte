@@ -24,6 +24,7 @@
     import ClientRoutesTab from './ClientRoutesTab.svelte';
     import { HrNeoTab } from '$lib/components/hrneo';
     import { SingboxRoutingPage } from '$lib/components/singbox-routing';
+    import { PageShell, type EngineStatus } from '$lib/components/sb-router';
     import GeoDataTab from './GeoDataTab.svelte';
     import { isRoutingSubTabVisible, type RoutingSubTab, type UsageLevel } from '$lib/types/usageLevel';
     import { usageLevel } from '$lib/stores/settings';
@@ -174,6 +175,12 @@
 
     const singboxRouterStatus = singboxRouterStore.status;
     let singboxRuleCount = $derived($singboxRouterStatus?.ruleCount ?? 0);
+    let sbEngineStatus: EngineStatus = $derived.by(() => {
+        const s = $singboxRouterStatus;
+        if (!s || !s.installed) return 'unknown';
+        if (s.enabled) return 'ok';
+        return 'down';
+    });
 
     let tabItems = $derived(
         ([
@@ -321,7 +328,9 @@
     {:else if activeTab === 'geodata'}
         <GeoDataTab />
     {:else if activeTab === 'singbox'}
-        <SingboxRoutingPage />
+        <PageShell engineStatus={sbEngineStatus}>
+            <SingboxRoutingPage />
+        </PageShell>
     {/if}
 </PageContainer>
 
