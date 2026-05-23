@@ -1,36 +1,13 @@
 /**
- * Heuristic mapping singbox routing rule → service key из SERVICES palette.
+ * Heuristic: singbox rule → preset.id (slug for PresetIcon).
  *
- * Источник: дизайн-документ singbox-router предполагает что карточка
- * правила показывает узнаваемый glyph (N для Netflix, Y для YouTube, …)
- * вместо generic иконки. Этот файл — таблица паттернов.
- *
- * Эвристика: domain_suffix matches → rule_set matches → 'custom'.
+ * Использует SERVICE_PRESETS из $lib/data/presets — единый источник
+ * domain matchers, поддерживается командой и обновляется. Дублировать
+ * паттерны тут — антипаттерн (см. F2 review).
  */
 
+import { SERVICE_PRESETS } from '$lib/data/presets';
 import type { SingboxRouterRule } from '$lib/types';
-
-interface ServicePattern {
-  key: string;
-  /** Suffix matches (case-insensitive). 'netflix.com' matches 'www.netflix.com'. */
-  domains?: string[];
-  /** rule_set name patterns (exact match, case-insensitive). */
-  ruleSets?: string[];
-}
-
-const PATTERNS: ServicePattern[] = [
-  { key: 'netflix',   domains: ['netflix.com', 'nflxext.com', 'nflximg.com', 'nflxvideo.net'] },
-  { key: 'youtube',   domains: ['youtube.com', 'ytimg.com', 'googlevideo.com', 'youtu.be', 'youtube-nocookie.com'] },
-  { key: 'telegram',  domains: ['telegram.org', 'telegram.me', 't.me', 'telesco.pe', 'telegra.ph'] },
-  { key: 'twitch',    domains: ['twitch.tv', 'ttvnw.net', 'jtvnw.net'] },
-  { key: 'spotify',   domains: ['spotify.com', 'scdn.co', 'spotifycdn.com'] },
-  { key: 'github',    domains: ['github.com', 'githubusercontent.com', 'githubassets.com', 'github.io'] },
-  { key: 'openai',    domains: ['openai.com', 'chatgpt.com', 'oaistatic.com', 'oaiusercontent.com'] },
-  { key: 'meta',      domains: ['facebook.com', 'instagram.com', 'whatsapp.com', 'fb.com', 'fbcdn.net', 'cdninstagram.com'] },
-  { key: 'discord',   domains: ['discord.com', 'discordapp.com', 'discord.gg', 'discordcdn.com'] },
-  { key: 'apple',     domains: ['apple.com', 'icloud.com', 'mzstatic.com', 'apple-cloudkit.com'] },
-  { key: 'geoip_ru',  ruleSets: ['geoip-ru', 'geosite-ru', 'ru', 'geoip_ru', 'geosite_ru'] },
-];
 
 function suffixMatches(domain: string, suffix: string): boolean {
   const d = domain.toLowerCase();
@@ -38,15 +15,29 @@ function suffixMatches(domain: string, suffix: string): boolean {
   return d === s || d.endsWith('.' + s);
 }
 
+/** Strip "geosite-" / "geoip-" prefix and normalize for matching to preset.id. */
+function normalizeRuleSetName(name: string): string {
+  return name.toLowerCase().replace(/^geo(site|ip)[-_]/, '');
+}
+
+/**
+ * Returns preset.id (e.g. 'netflix', 'telegram', 'youtube') for known services,
+ * or 'custom' otherwise. The id is fed to PresetIcon for brand-correct rendering.
+ */
 export function detectServiceKey(rule: SingboxRouterRule): string {
   const domains = rule.domain_suffix ?? [];
   if (domains.length > 0) {
-    for (const pattern of PATTERNS) {
-      if (!pattern.domains) continue;
+    for (const preset of SERVICE_PRESETS) {
+      const presetDomains = preset.domains ?? [];
+      // Skip presets with no domain matchers or only-CIDR matchers
+      const onlyCIDR = presetDomains.every((d) => /^\d|^[\da-f]+:/i.test(d));
+      if (presetDomains.length === 0 || onlyCIDR) continue;
       for (const ruleDomain of domains) {
-        for (const patternDomain of pattern.domains) {
-          if (suffixMatches(ruleDomain, patternDomain)) {
-            return pattern.key;
+        for (const presetDomain of presetDomains) {
+          // Skip CIDR-looking entries inside presets (e.g. telegram has IP ranges mixed with domains)
+          if (/^\d|^[\da-f]+:/i.test(presetDomain)) continue;
+          if (suffixMatches(ruleDomain, presetDomain)) {
+            return preset.id;
           }
         }
       }
@@ -55,13 +46,15 @@ export function detectServiceKey(rule: SingboxRouterRule): string {
 
   const sets = rule.rule_set ?? [];
   if (sets.length > 0) {
-    for (const pattern of PATTERNS) {
-      if (!pattern.ruleSets) continue;
-      for (const ruleSet of sets) {
-        const rs = ruleSet.toLowerCase();
-        if (pattern.ruleSets.some(p => p.toLowerCase() === rs)) {
-          return pattern.key;
-        }
+    for (const rs of sets) {
+      const normalized = normalizeRuleSetName(rs);
+      // Direct id match: rule_set 'telegram' or 'geosite-telegram' → 'telegram'
+      const preset = SERVICE_PRESETS.find((p) => p.id.toLowerCase() === normalized);
+      if (preset) return preset.id;
+      // Special case: 'ru' / 'russia' → russian-services
+      if (normalized === 'ru' || normalized === 'russia') {
+        const ru = SERVICE_PRESETS.find((p) => p.id === 'russian-services');
+        if (ru) return ru.id;
       }
     }
   }

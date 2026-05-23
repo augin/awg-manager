@@ -37,9 +37,10 @@ describe('detectServiceKey', () => {
     expect(detectServiceKey(rule({ domain_suffix: ['githubusercontent.com'] }))).toBe('github');
   });
 
-  it('detects openai', () => {
-    expect(detectServiceKey(rule({ domain_suffix: ['openai.com'] }))).toBe('openai');
-    expect(detectServiceKey(rule({ domain_suffix: ['chatgpt.com'] }))).toBe('openai');
+  it('detects chatgpt (openai.com/chatgpt.com → preset id "chatgpt")', () => {
+    // SERVICE_PRESETS has id 'chatgpt' covering openai.com and chatgpt.com
+    expect(detectServiceKey(rule({ domain_suffix: ['openai.com'] }))).toBe('chatgpt');
+    expect(detectServiceKey(rule({ domain_suffix: ['chatgpt.com'] }))).toBe('chatgpt');
   });
 
   it('detects discord', () => {
@@ -51,20 +52,21 @@ describe('detectServiceKey', () => {
     expect(detectServiceKey(rule({ domain_suffix: ['twitch.tv'] }))).toBe('twitch');
   });
 
-  it('detects meta domains', () => {
-    expect(detectServiceKey(rule({ domain_suffix: ['facebook.com'] }))).toBe('meta');
-    expect(detectServiceKey(rule({ domain_suffix: ['instagram.com'] }))).toBe('meta');
-    expect(detectServiceKey(rule({ domain_suffix: ['whatsapp.com'] }))).toBe('meta');
+  it('detects social (facebook/instagram/whatsapp → preset id "social")', () => {
+    // SERVICE_PRESETS has id 'social' — no separate 'meta' preset exists
+    expect(detectServiceKey(rule({ domain_suffix: ['facebook.com'] }))).toBe('social');
+    expect(detectServiceKey(rule({ domain_suffix: ['instagram.com'] }))).toBe('social');
+    expect(detectServiceKey(rule({ domain_suffix: ['whatsapp.com'] }))).toBe('social');
   });
 
-  it('detects apple', () => {
-    expect(detectServiceKey(rule({ domain_suffix: ['apple.com'] }))).toBe('apple');
-    expect(detectServiceKey(rule({ domain_suffix: ['icloud.com'] }))).toBe('apple');
+  it('returns "custom" for apple domains (no apple preset in SERVICE_PRESETS)', () => {
+    expect(detectServiceKey(rule({ domain_suffix: ['apple.com'] }))).toBe('custom');
+    expect(detectServiceKey(rule({ domain_suffix: ['icloud.com'] }))).toBe('custom');
   });
 
-  it('detects geoip_ru from rule_set', () => {
-    expect(detectServiceKey(rule({ rule_set: ['geoip-ru'] }))).toBe('geoip_ru');
-    expect(detectServiceKey(rule({ rule_set: ['geosite-ru'] }))).toBe('geoip_ru');
+  it('detects russian-services from rule_set geoip-ru / geosite-ru', () => {
+    expect(detectServiceKey(rule({ rule_set: ['geoip-ru'] }))).toBe('russian-services');
+    expect(detectServiceKey(rule({ rule_set: ['geosite-ru'] }))).toBe('russian-services');
   });
 
   it('domain_suffix takes precedence over rule_set', () => {
