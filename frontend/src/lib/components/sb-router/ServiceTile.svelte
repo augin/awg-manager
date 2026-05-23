@@ -1,35 +1,34 @@
+<!--
+  Источник дизайна: singbox-router/project/parts/Primitives.jsx (ServiceTile)
+  Реализация: тонкая обёртка над $lib/components/routing/singboxRouter/PresetIcon,
+  которая рендерит brand SVG (или fallback letter-monogram) по preset.id.
+  Не дублируем letter-glyph rendering — у проекта есть унифицированная система.
+-->
+
 <script lang="ts" module>
   export type ServiceTileSize = 'sm' | 'md' | 'lg';
 </script>
 
 <script lang="ts">
-  import { getServiceVisual } from '$lib/data/services';
+  import PresetIcon from '$lib/components/routing/singboxRouter/PresetIcon.svelte';
 
   interface Props {
-    /** Service key — резолвится через services.ts; неизвестное → custom fallback. */
+    /** Slug — соответствует SERVICE_PRESETS.id или известному brandIcons key. */
     serviceKey: string;
-    /** Подпись справа от тайла (имя сервиса). */
+    /** Имя для подписи справа и для letter-fallback. */
     name?: string;
-    /** Опциональный subтекст под именем. */
+    /** Опциональный sub-text. */
     sub?: string;
     /** Размер тайла. sm=24, md=32 (default), lg=40. */
     size?: ServiceTileSize;
   }
 
   let { serviceKey, name, sub, size = 'md' }: Props = $props();
-  let visual = $derived(getServiceVisual(serviceKey));
   let dim = $derived(size === 'sm' ? 24 : size === 'lg' ? 40 : 32);
-  let fontSize = $derived(size === 'sm' ? 11 : size === 'lg' ? 16 : 14);
 </script>
 
 <div class="service-tile">
-  <div
-    class="glyph"
-    style:width="{dim}px"
-    style:height="{dim}px"
-    style:background={visual.color}
-    style:font-size="{fontSize}px"
-  >{visual.glyph}</div>
+  <PresetIcon slug={serviceKey} size={dim} label={name ?? serviceKey} />
   {#if name}
     <div class="text">
       <div class="name">{name}</div>
@@ -44,17 +43,6 @@
     align-items: center;
     gap: var(--sp-3);
     min-width: 0;
-  }
-  .glyph {
-    flex-shrink: 0;
-    border-radius: var(--radius-sm);
-    color: #fff;
-    font-weight: 700;
-    font-family: var(--font-sans);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
   }
   .text { min-width: 0; line-height: 1.2; }
   .name {

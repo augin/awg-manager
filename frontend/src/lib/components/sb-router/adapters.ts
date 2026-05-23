@@ -18,7 +18,6 @@ import type {
   RuleCardData,
 } from './types';
 import { detectServiceKey } from './serviceDetection';
-import { getServiceVisual } from '$lib/data/services';
 
 /* ─── System rule detection ─────────────────────────────────────────── */
 
@@ -145,9 +144,6 @@ export function singboxRuleToCard(
   const isSystem = isSystemRule(rule);
   const title = fallbackTitle(rule, serviceKey, index);
   const subtitle = matchers.length > 4 ? `${matchers.length} матчеров` : undefined;
-
-  // Verify SERVICES exists (defensive; we know it does from F1)
-  getServiceVisual(serviceKey);
 
   return {
     id: ruleId(rule, index),
