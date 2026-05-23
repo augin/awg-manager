@@ -16,6 +16,7 @@ export { default as Card } from './Card.svelte';
 export type { CardVariant, CardPadding } from './Card.svelte';
 export { default as Badge } from './Badge.svelte';
 export type { BadgeVariant, BadgeSize } from './Badge.svelte';
+export { default as SectionLabel } from './SectionLabel.svelte';
 export { default as StatusDot } from './StatusDot.svelte';
 export type { StatusDotVariant, StatusDotSize } from './StatusDot.svelte';
 export { default as Stat } from './Stat.svelte';
