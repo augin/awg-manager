@@ -8,6 +8,7 @@
 -->
 
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { singboxRouter as singboxRouterStore } from '$lib/stores/singboxRouter';
   import { SectionLabel } from '$lib/components/ui';
   import RuleCard from './RuleCard.svelte';
@@ -17,6 +18,14 @@
   const rules = singboxRouterStore.rules;
   const ruleSets = singboxRouterStore.ruleSets;
   const outbounds = singboxRouterStore.outbounds;
+
+  // Триггерим полную загрузку при mount'е. Без этого панель в Beginner
+  // mode при первом заходе показывает empty state до тех пор пока юзер
+  // не переключится в Expert (там SingboxRoutingPage.onMount делает
+  // loadAll). Симметрично с тем как Expert грузит данные.
+  onMount(() => {
+    void singboxRouterStore.loadAll();
+  });
 
   // Собираем rulesetLabels: tag → tag (у SingboxRouterRuleSet нет поля label,
   // только tag — используем его как отображаемое имя)
