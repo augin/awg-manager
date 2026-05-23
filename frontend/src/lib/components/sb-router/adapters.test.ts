@@ -70,6 +70,18 @@ describe('resolveOutboundDisplay', () => {
     expect(d.kind).toBe('direct');
     expect(d.name).toBe('direct');
   });
+
+  it('sniff action renders SNIFF mono badge', () => {
+    const d = resolveOutboundDisplay(undefined, 'sniff', noOutbounds);
+    expect(d.kind).toBe('sniff');
+    expect(d.label).toBe('SNIFF');
+  });
+
+  it('hijack-dns action renders HIJACK-DNS mono badge', () => {
+    const d = resolveOutboundDisplay(undefined, 'hijack-dns', noOutbounds);
+    expect(d.kind).toBe('hijack-dns');
+    expect(d.label).toBe('HIJACK-DNS');
+  });
 });
 
 describe('extractMatcherChips', () => {
@@ -193,5 +205,23 @@ describe('singboxRuleToCard', () => {
     const a = singboxRuleToCard(r, 0, [], {});
     const b = singboxRuleToCard(r, 0, [], {});
     expect(a.id).toBe(b.id);
+  });
+
+  it('sniff system rule renders as mono badge', () => {
+    const card = singboxRuleToCard({ action: 'sniff' }, 0, [], {});
+    expect(card.isSystem).toBe(true);
+    expect(card.title).toBe('Sniff');
+    expect(card.action).toBe('sniff');
+    expect(card.outbound.kind).toBe('sniff');
+    expect(card.outbound.label).toBe('SNIFF');
+  });
+
+  it('hijack-dns system rule renders as mono badge', () => {
+    const card = singboxRuleToCard({ action: 'hijack-dns' }, 0, [], {});
+    expect(card.isSystem).toBe(true);
+    expect(card.title).toBe('Hijack DNS');
+    expect(card.action).toBe('hijack-dns');
+    expect(card.outbound.kind).toBe('hijack-dns');
+    expect(card.outbound.label).toBe('HIJACK-DNS');
   });
 });

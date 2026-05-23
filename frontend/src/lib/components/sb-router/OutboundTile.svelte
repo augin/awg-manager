@@ -1,7 +1,7 @@
 <!--
   Источник дизайна: singbox-router/project/parts/RuleCard.jsx (ActionTile)
-  4 варианта: block / direct / tunnel / composite (показывается как tunnel)
-  / unknown. Spacing, цвета — повторяем точно.
+  Варианты: block / direct / tunnel / composite (показывается как tunnel)
+  / sniff / hijack-dns / unknown. Spacing, цвета — повторяем точно.
 -->
 
 <script lang="ts">
@@ -28,6 +28,10 @@
       <polyline points="14 7 19 12 14 17" />
     </svg>
     <span>Напрямую</span>
+  </div>
+{:else if outbound.kind === 'sniff' || outbound.kind === 'hijack-dns'}
+  <div class="tile tile-system">
+    <span class="label-mono">{outbound.label}</span>
   </div>
 {:else if outbound.kind === 'tunnel' || outbound.kind === 'composite'}
   <div class="tile tile-tunnel">
@@ -90,6 +94,16 @@
     color: var(--warning);
     font-weight: 600;
     gap: 8px;
+  }
+
+  .tile-system {
+    background: var(--bg-tertiary);
+    border-color: var(--border);
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 11px;
   }
 
   .label-mono { font-family: var(--font-mono); }

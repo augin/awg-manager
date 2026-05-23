@@ -46,6 +46,14 @@ export function resolveOutboundDisplay(
   action: RuleAction,
   outbounds: SingboxRouterOutbound[],
 ): OutboundDisplay {
+  // System actions — render as mono badges instead of destination tile.
+  if (action === 'sniff') {
+    return { name: name ?? 'sniff', label: 'SNIFF', kind: 'sniff' };
+  }
+  if (action === 'hijack-dns') {
+    return { name: name ?? 'hijack-dns', label: 'HIJACK-DNS', kind: 'hijack-dns' };
+  }
+
   if (action === 'block') {
     return { name: name ?? 'block', label: 'Блок', kind: 'block' };
   }
@@ -108,8 +116,8 @@ function fallbackTitle(rule: SingboxRouterRule, serviceKey: string, index: numbe
     return serviceKey.charAt(0).toUpperCase() + serviceKey.slice(1).replace('_', ' ');
   }
   if (rule.ip_is_private) return 'Локальная сеть';
-  if (rule.action === 'sniff') return 'Sniff (системное)';
-  if (rule.action === 'hijack-dns') return 'Hijack DNS (системное)';
+  if (rule.action === 'sniff') return 'Sniff';
+  if (rule.action === 'hijack-dns') return 'Hijack DNS';
   if (rule.domain_suffix?.length) return rule.domain_suffix[0];
   if (rule.ip_cidr?.length) return rule.ip_cidr[0];
   if (rule.rule_set?.length) return rule.rule_set[0];
