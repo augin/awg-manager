@@ -332,7 +332,7 @@ func TestReconcile_WANIPsChanged_Reinstalls(t *testing.T) {
 
 	svc := &ServiceImpl{
 		deps: Deps{
-				Policies:           &fakeAccessPolicyProvider{mark: "0xffffaaa"},
+			Policies:           &fakeAccessPolicyProvider{mark: "0xffffaaa"},
 			IPTables:           ipt,
 			WANIPCollector:     collector,
 			Singbox:            newTestSingbox(t),
@@ -369,7 +369,7 @@ func TestReconcile_WANIPsSame_NoOp(t *testing.T) {
 	// stored values, so no re-install should be triggered.
 	svc := &ServiceImpl{
 		deps: Deps{
-				Policies:           &fakeAccessPolicyProvider{mark: "0xffffaaa"},
+			Policies:           &fakeAccessPolicyProvider{mark: "0xffffaaa"},
 			IPTables:           ipt,
 			WANIPCollector:     collector,
 			Singbox:            newTestSingbox(t),
@@ -431,7 +431,7 @@ func TestReconcile_DeviceModeChanged_ReinstallsImmediately(t *testing.T) {
 			policies := &fakeAccessPolicyProvider{mark: "0xffffaaa"}
 			svc := &ServiceImpl{
 				deps: Deps{
-								Policies:           policies,
+					Policies:           policies,
 					IPTables:           newStubIPTables(func(_ context.Context, input string) error { restoreInput = input; restoreCalls++; return nil }),
 					WANIPCollector:     &fakeWANIPCollector{},
 					Singbox:            newTestSingbox(t),
@@ -941,6 +941,69 @@ func TestUpdateRuleSet_InlineOverwritesSameSRSFile(t *testing.T) {
 	}
 }
 
+func TestUpdateRuleSet_InlineRenameRewritesVisibleAndMaterializedRefs(t *testing.T) {
+	svc, dir := newOrchedTestService(t)
+	svc.deps.Singbox.(*fakeSingbox).binary = "/opt/bin/sing-box"
+	withFakeRuleSetCompiler(t, func(binary string, args []string) (string, string, error) {
+		writeCompiledOutput(t, args, "compiled")
+		return "", "", nil
+	})
+
+	if err := svc.AddRuleSet(context.Background(), RuleSet{
+		Tag:   "old-inline",
+		Type:  "inline",
+		Rules: []map[string]any{{"domain_suffix": []any{".old.example"}}},
+	}); err != nil {
+		t.Fatalf("AddRuleSet: %v", err)
+	}
+	if err := svc.AddRule(context.Background(), Rule{RuleSet: []string{"old-inline"}, Action: "route", Outbound: "direct"}); err != nil {
+		t.Fatalf("AddRule: %v", err)
+	}
+	if err := svc.AddDNSRule(context.Background(), DNSRule{RuleSet: []string{"old-inline"}, Server: "dns", Action: "reject"}); err != nil {
+		t.Fatalf("AddDNSRule: %v", err)
+	}
+	if err := svc.UpdateRuleSet(context.Background(), "old-inline", RuleSet{
+		Tag:   "new-inline",
+		Type:  "inline",
+		Rules: []map[string]any{{"domain_suffix": []any{".new.example"}}},
+	}); err != nil {
+		t.Fatalf("UpdateRuleSet rename: %v", err)
+	}
+
+	rules, err := svc.ListRules(context.Background())
+	if err != nil {
+		t.Fatalf("ListRules: %v", err)
+	}
+	if len(rules) != 1 || len(rules[0].RuleSet) != 1 || rules[0].RuleSet[0] != "new-inline" {
+		t.Fatalf("visible route refs = %+v", rules)
+	}
+	dnsRules, err := svc.ListDNSRules(context.Background())
+	if err != nil {
+		t.Fatalf("ListDNSRules: %v", err)
+	}
+	if len(dnsRules) != 1 || len(dnsRules[0].RuleSet) != 1 || dnsRules[0].RuleSet[0] != "new-inline" {
+		t.Fatalf("visible dns refs = %+v", dnsRules)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(dir, "pending", "20-router.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg RouterConfig
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Route.RuleSet) != 1 || cfg.Route.RuleSet[0].Tag != "new-inline-srs" {
+		t.Fatalf("materialized rule_set = %+v", cfg.Route.RuleSet)
+	}
+	if len(cfg.Route.Rules) != 1 || cfg.Route.Rules[0].RuleSet[0] != "new-inline-srs" {
+		t.Fatalf("materialized route refs = %+v", cfg.Route.Rules)
+	}
+	if len(cfg.DNS.Rules) != 1 || cfg.DNS.Rules[0].RuleSet[0] != "new-inline-srs" {
+		t.Fatalf("materialized dns refs = %+v", cfg.DNS.Rules)
+	}
+}
+
 func TestDeleteRuleSet_StagedInlineKeepsSRSCompanionFiles(t *testing.T) {
 	svc, dir := newOrchedTestService(t)
 	svc.deps.Singbox.(*fakeSingbox).binary = "/opt/bin/sing-box"
@@ -1057,7 +1120,7 @@ func TestReconcile_BypassPresetsChanged_Reinstalls(t *testing.T) {
 
 	svc := &ServiceImpl{
 		deps: Deps{
-				Policies:           &fakeAccessPolicyProvider{mark: "0xffffaaa"},
+			Policies:           &fakeAccessPolicyProvider{mark: "0xffffaaa"},
 			IPTables:           ipt,
 			WANIPCollector:     collector,
 			Singbox:            newTestSingbox(t),
@@ -1094,7 +1157,7 @@ func TestReconcile_BypassPresetsSame_NoOp(t *testing.T) {
 
 	svc := &ServiceImpl{
 		deps: Deps{
-				Policies:           &fakeAccessPolicyProvider{mark: "0xffffaaa"},
+			Policies:           &fakeAccessPolicyProvider{mark: "0xffffaaa"},
 			IPTables:           ipt,
 			WANIPCollector:     collector,
 			Singbox:            newTestSingbox(t),

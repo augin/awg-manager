@@ -88,19 +88,27 @@ func (c *RouterConfig) UpdateRuleSet(tag string, next RuleSet) error {
 	if next.Tag == "" {
 		next.Tag = tag
 	}
-	if next.Tag != tag {
-		return fmt.Errorf("rule_set %q: changing tag is not supported", tag)
-	}
 	if err := validateRuleSet(next); err != nil {
 		return err
 	}
+	idx := -1
 	for i, existing := range c.Route.RuleSet {
 		if existing.Tag == tag {
-			c.Route.RuleSet[i] = next
-			return nil
+			idx = i
+			continue
+		}
+		if existing.Tag == next.Tag && tag != next.Tag {
+			return fmt.Errorf("%w: %q", ErrRuleSetTagConflict, next.Tag)
 		}
 	}
-	return fmt.Errorf("%w: %q", ErrRuleSetNotFound, tag)
+	if idx < 0 {
+		return fmt.Errorf("%w: %q", ErrRuleSetNotFound, tag)
+	}
+	c.Route.RuleSet[idx] = next
+	if tag != next.Tag {
+		c.renameRuleSetReferences(tag, next.Tag)
+	}
+	return nil
 }
 
 func (c *RouterConfig) DeleteRuleSet(tag string, force bool) error {
@@ -118,7 +126,7 @@ func (c *RouterConfig) DeleteRuleSet(tag string, force bool) error {
 	}
 	if force {
 		for i := range c.Route.Rules {
-			c.Route.Rules[i].RuleSet = removeRuleSetRefs(c.Route.Rules[i].RuleSet, remove)
+			removeRuleSetRefsInRule(&c.Route.Rules[i], remove)
 		}
 		for i := range c.DNS.Rules {
 			c.DNS.Rules[i].RuleSet = removeRuleSetRefs(c.DNS.Rules[i].RuleSet, remove)
@@ -133,6 +141,29 @@ func (c *RouterConfig) DeleteRuleSet(tag string, force bool) error {
 	}
 	c.Route.RuleSet = filtered
 	return nil
+}
+
+func (c *RouterConfig) renameRuleSetReferences(oldTag, newTag string) {
+	for i := range c.Route.Rules {
+		renameRuleSetRefsInRule(&c.Route.Rules[i], oldTag, newTag)
+	}
+	for i := range c.DNS.Rules {
+		c.DNS.Rules[i].RuleSet = rewriteTagSlice(c.DNS.Rules[i].RuleSet, oldTag, newTag)
+	}
+}
+
+func renameRuleSetRefsInRule(r *Rule, oldTag, newTag string) {
+	r.RuleSet = rewriteTagSlice(r.RuleSet, oldTag, newTag)
+	for i := range r.Rules {
+		renameRuleSetRefsInRule(&r.Rules[i], oldTag, newTag)
+	}
+}
+
+func removeRuleSetRefsInRule(r *Rule, remove map[string]struct{}) {
+	r.RuleSet = removeRuleSetRefs(r.RuleSet, remove)
+	for i := range r.Rules {
+		removeRuleSetRefsInRule(&r.Rules[i], remove)
+	}
 }
 
 func removeRuleSetRefs(tags []string, remove map[string]struct{}) []string {
@@ -411,13 +442,24 @@ func (c *RouterConfig) UpdateCompositeOutbound(tag string, o Outbound) error {
 	if err := validateCompositeOutbound(o); err != nil {
 		return err
 	}
+	idx := -1
 	for i, existing := range c.Outbounds {
 		if existing.Tag == tag {
-			c.Outbounds[i] = o
-			return nil
+			idx = i
+			continue
+		}
+		if existing.Tag == o.Tag && tag != o.Tag {
+			return fmt.Errorf("%w: %q", ErrOutboundTagConflict, o.Tag)
 		}
 	}
-	return fmt.Errorf("%w: %q not found", ErrOutboundTagConflict, tag)
+	if idx < 0 {
+		return fmt.Errorf("%w: %q not found", ErrOutboundTagConflict, tag)
+	}
+	c.Outbounds[idx] = o
+	if tag != o.Tag {
+		c.renameOutboundReferences(tag, o.Tag)
+	}
+	return nil
 }
 
 // validateCompositeOutbound rejects shapes that compile but produce
@@ -444,9 +486,9 @@ func validateCompositeOutbound(o Outbound) error {
 }
 
 func (c *RouterConfig) DeleteCompositeOutbound(tag string, force bool) error {
-	refs := c.rulesReferencingOutbound(tag)
+	refs := c.outboundReferences(tag)
 	if len(refs) > 0 && !force {
-		return fmt.Errorf("%w: %q referenced by rules %v", ErrOutboundReferenced, tag, refs)
+		return fmt.Errorf("%w: %q referenced by %s", ErrOutboundReferenced, tag, strings.Join(refs, ", "))
 	}
 	filtered := make([]Outbound, 0, len(c.Outbounds))
 	for _, o := range c.Outbounds {
@@ -455,17 +497,175 @@ func (c *RouterConfig) DeleteCompositeOutbound(tag string, force bool) error {
 		}
 	}
 	c.Outbounds = filtered
+	if force {
+		c.removeOutboundReferences(tag)
+	}
 	return nil
 }
 
 func (c *RouterConfig) rulesReferencingOutbound(tag string) []int {
 	var refs []int
 	for i, r := range c.Route.Rules {
-		if r.Outbound == tag {
+		if ruleReferencesOutbound(r, tag) {
 			refs = append(refs, i)
 		}
 	}
 	return refs
+}
+
+func (c *RouterConfig) renameOutboundReferences(oldTag, newTag string) {
+	for i := range c.Route.Rules {
+		renameOutboundRefsInRule(&c.Route.Rules[i], oldTag, newTag)
+	}
+	if c.Route.Final == oldTag {
+		c.Route.Final = newTag
+	}
+	for i := range c.Outbounds {
+		c.Outbounds[i].Outbounds = rewriteTagSlice(c.Outbounds[i].Outbounds, oldTag, newTag)
+		if c.Outbounds[i].Default == oldTag {
+			c.Outbounds[i].Default = newTag
+		}
+	}
+	for i := range c.DNS.Servers {
+		if c.DNS.Servers[i].Detour == oldTag {
+			c.DNS.Servers[i].Detour = newTag
+		}
+	}
+	for i := range c.Route.RuleSet {
+		if c.Route.RuleSet[i].DownloadDetour == oldTag {
+			c.Route.RuleSet[i].DownloadDetour = newTag
+		}
+	}
+}
+
+func (c *RouterConfig) removeOutboundReferences(tag string) {
+	rules := make([]Rule, 0, len(c.Route.Rules))
+	for _, r := range c.Route.Rules {
+		if r.Outbound == tag {
+			continue
+		}
+		removeOutboundRefsInNestedRules(&r, tag)
+		rules = append(rules, r)
+	}
+	c.Route.Rules = rules
+	if c.Route.Final == tag {
+		c.Route.Final = "direct"
+	}
+	for i := range c.Outbounds {
+		c.Outbounds[i].Outbounds = removeTagRefs(c.Outbounds[i].Outbounds, tag)
+		if c.Outbounds[i].Default == tag {
+			c.Outbounds[i].Default = ""
+		}
+	}
+	for i := range c.DNS.Servers {
+		if c.DNS.Servers[i].Detour == tag {
+			c.DNS.Servers[i].Detour = ""
+		}
+	}
+	for i := range c.Route.RuleSet {
+		if c.Route.RuleSet[i].DownloadDetour == tag {
+			c.Route.RuleSet[i].DownloadDetour = ""
+		}
+	}
+}
+
+func (c *RouterConfig) outboundReferences(tag string) []string {
+	var refs []string
+	for i, r := range c.Route.Rules {
+		if ruleReferencesOutbound(r, tag) {
+			refs = append(refs, fmt.Sprintf("route.rules[%d]", i))
+		}
+	}
+	if c.Route.Final == tag {
+		refs = append(refs, "route.final")
+	}
+	for i, o := range c.Outbounds {
+		for j, member := range o.Outbounds {
+			if member == tag {
+				refs = append(refs, fmt.Sprintf("outbounds[%d=%q].outbounds[%d]", i, o.Tag, j))
+			}
+		}
+		if o.Default == tag {
+			refs = append(refs, fmt.Sprintf("outbounds[%d=%q].default", i, o.Tag))
+		}
+	}
+	for i, s := range c.DNS.Servers {
+		if s.Detour == tag {
+			refs = append(refs, fmt.Sprintf("dns.servers[%d=%q].detour", i, s.Tag))
+		}
+	}
+	for i, rs := range c.Route.RuleSet {
+		if rs.DownloadDetour == tag {
+			refs = append(refs, fmt.Sprintf("route.rule_set[%d=%q].download_detour", i, rs.Tag))
+		}
+	}
+	return refs
+}
+
+func ruleReferencesOutbound(r Rule, tag string) bool {
+	if r.Outbound == tag {
+		return true
+	}
+	for _, nested := range r.Rules {
+		if ruleReferencesOutbound(nested, tag) {
+			return true
+		}
+	}
+	return false
+}
+
+func renameOutboundRefsInRule(r *Rule, oldTag, newTag string) {
+	if r.Outbound == oldTag {
+		r.Outbound = newTag
+	}
+	for i := range r.Rules {
+		renameOutboundRefsInRule(&r.Rules[i], oldTag, newTag)
+	}
+}
+
+func removeOutboundRefsInNestedRules(r *Rule, tag string) {
+	for i := range r.Rules {
+		if r.Rules[i].Outbound == tag {
+			r.Rules[i].Outbound = ""
+		}
+		removeOutboundRefsInNestedRules(&r.Rules[i], tag)
+	}
+}
+
+func rewriteTagSlice(tags []string, from, to string) []string {
+	if len(tags) == 0 || from == "" || to == "" || from == to {
+		return tags
+	}
+	out := make([]string, len(tags))
+	changed := false
+	for i, tag := range tags {
+		if tag == from {
+			out[i] = to
+			changed = true
+		} else {
+			out[i] = tag
+		}
+	}
+	if !changed {
+		return tags
+	}
+	return out
+}
+
+func removeTagRefs(tags []string, tag string) []string {
+	if len(tags) == 0 {
+		return nil
+	}
+	out := tags[:0]
+	for _, existing := range tags {
+		if existing != tag {
+			out = append(out, existing)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func (c *RouterConfig) CompositeOutbounds() []Outbound {

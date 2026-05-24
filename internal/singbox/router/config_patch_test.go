@@ -42,11 +42,49 @@ func TestRuleSetUpdate(t *testing.T) {
 		t.Errorf("expected ErrRuleSetNotFound, got %v", err)
 	}
 
-	// Tag rename rejected.
+	// Tag rename cascades to route and DNS references.
 	renamed := RuleSet{Tag: "geosite-renamed", Type: "remote", Format: "binary", URL: "https://example.com/x.srs", UpdateInterval: "24h"}
-	err = cfg.UpdateRuleSet("geosite-youtube", renamed)
-	if err == nil {
-		t.Error("expected tag-rename to be rejected, got nil")
+	cfg.Route.Rules = []Rule{{RuleSet: []string{"geosite-youtube"}, Action: "route", Outbound: "direct"}}
+	cfg.DNS.Rules = []DNSRule{{RuleSet: []string{"geosite-youtube"}, Server: "dns"}}
+	if err := cfg.UpdateRuleSet("geosite-youtube", renamed); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+	if cfg.Route.RuleSet[0].Tag != "geosite-renamed" {
+		t.Fatalf("rule_set tag not renamed: %+v", cfg.Route.RuleSet)
+	}
+	if cfg.Route.Rules[0].RuleSet[0] != "geosite-renamed" {
+		t.Fatalf("route rule_set refs not renamed: %+v", cfg.Route.Rules)
+	}
+	if cfg.DNS.Rules[0].RuleSet[0] != "geosite-renamed" {
+		t.Fatalf("dns rule_set refs not renamed: %+v", cfg.DNS.Rules)
+	}
+}
+
+func TestRuleSetRenameNestedRefsAndConflict(t *testing.T) {
+	cfg := NewEmptyConfig()
+	cfg.Route.RuleSet = []RuleSet{
+		{Tag: "old", Type: "remote", Format: "binary", URL: "https://example.com/old.srs", UpdateInterval: "24h"},
+		{Tag: "taken", Type: "remote", Format: "binary", URL: "https://example.com/taken.srs", UpdateInterval: "24h"},
+	}
+	cfg.Route.Rules = []Rule{{
+		Type: "logical", Mode: "or",
+		Rules:  []Rule{{RuleSet: []string{"old", "keep"}}},
+		Action: "route", Outbound: "direct",
+	}}
+	before, _ := json.Marshal(cfg)
+	if err := cfg.UpdateRuleSet("old", RuleSet{Tag: "taken", Type: "remote", Format: "binary", URL: "https://example.com/new.srs", UpdateInterval: "24h"}); !errors.Is(err, ErrRuleSetTagConflict) {
+		t.Fatalf("expected conflict, got %v", err)
+	}
+	after, _ := json.Marshal(cfg)
+	if string(before) != string(after) {
+		t.Fatalf("conflict mutated config: before=%s after=%s", before, after)
+	}
+	if err := cfg.UpdateRuleSet("old", RuleSet{Tag: "new", Type: "remote", Format: "binary", URL: "https://example.com/new.srs", UpdateInterval: "24h"}); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+	got := cfg.Route.Rules[0].Rules[0].RuleSet
+	if len(got) != 2 || got[0] != "new" || got[1] != "keep" {
+		t.Fatalf("nested rule_set refs = %+v", got)
 	}
 }
 
@@ -500,10 +538,68 @@ func TestCompositeOutboundTagConflict(t *testing.T) {
 	}
 }
 
+func TestCompositeOutboundRenameCascadesReferences(t *testing.T) {
+	cfg := NewEmptyConfig()
+	cfg.Outbounds = []Outbound{
+		{Type: "urltest", Tag: "fast", Outbounds: []string{"awg10", "awg20"}},
+		{Type: "selector", Tag: "sel", Outbounds: []string{"fast", "awg30"}, Default: "fast"},
+	}
+	cfg.Route.Final = "fast"
+	cfg.Route.Rules = []Rule{{
+		Type: "logical", Mode: "or",
+		Rules:  []Rule{{Outbound: "fast"}},
+		Action: "route", Outbound: "fast",
+	}}
+	cfg.DNS.Servers = []DNSServer{{Tag: "dns", Type: "udp", Server: "1.1.1.1", Detour: "fast"}}
+	cfg.Route.RuleSet = []RuleSet{{Tag: "geo", Type: "remote", Format: "binary", URL: "https://example.com/geo.srs", DownloadDetour: "fast"}}
+
+	if err := cfg.UpdateCompositeOutbound("fast", Outbound{Type: "urltest", Tag: "quick", Outbounds: []string{"awg10", "awg20"}}); err != nil {
+		t.Fatalf("rename outbound: %v", err)
+	}
+	if cfg.Route.Rules[0].Outbound != "quick" || cfg.Route.Rules[0].Rules[0].Outbound != "quick" {
+		t.Fatalf("route outbound refs not renamed: %+v", cfg.Route.Rules)
+	}
+	if cfg.Route.Final != "quick" {
+		t.Fatalf("route.final = %q", cfg.Route.Final)
+	}
+	if cfg.Outbounds[1].Outbounds[0] != "quick" || cfg.Outbounds[1].Default != "quick" {
+		t.Fatalf("composite refs not renamed: %+v", cfg.Outbounds[1])
+	}
+	if cfg.DNS.Servers[0].Detour != "quick" {
+		t.Fatalf("dns detour = %q", cfg.DNS.Servers[0].Detour)
+	}
+	if cfg.Route.RuleSet[0].DownloadDetour != "quick" {
+		t.Fatalf("download_detour = %q", cfg.Route.RuleSet[0].DownloadDetour)
+	}
+}
+
+func TestCompositeOutboundRenameConflictDoesNotMutate(t *testing.T) {
+	cfg := NewEmptyConfig()
+	cfg.Outbounds = []Outbound{
+		{Type: "urltest", Tag: "fast", Outbounds: []string{"awg10", "awg20"}},
+		{Type: "urltest", Tag: "taken", Outbounds: []string{"awg30", "awg40"}},
+	}
+	before, _ := json.Marshal(cfg)
+	err := cfg.UpdateCompositeOutbound("fast", Outbound{Type: "urltest", Tag: "taken", Outbounds: []string{"awg10", "awg20"}})
+	if !errors.Is(err, ErrOutboundTagConflict) {
+		t.Fatalf("expected ErrOutboundTagConflict, got %v", err)
+	}
+	after, _ := json.Marshal(cfg)
+	if string(before) != string(after) {
+		t.Fatalf("conflict mutated config: before=%s after=%s", before, after)
+	}
+}
+
 func TestCompositeOutboundDeleteReferenced(t *testing.T) {
 	cfg := NewEmptyConfig()
-	cfg.Outbounds = []Outbound{{Type: "urltest", Tag: "fast"}}
+	cfg.Outbounds = []Outbound{
+		{Type: "urltest", Tag: "fast"},
+		{Type: "selector", Tag: "sel", Outbounds: []string{"fast", "keep"}, Default: "fast"},
+	}
+	cfg.Route.Final = "fast"
 	cfg.Route.Rules = []Rule{{DomainSuffix: []string{"x.com"}, Action: "route", Outbound: "fast"}}
+	cfg.DNS.Servers = []DNSServer{{Tag: "dns", Type: "udp", Server: "1.1.1.1", Detour: "fast"}}
+	cfg.Route.RuleSet = []RuleSet{{Tag: "geo", Type: "remote", Format: "binary", URL: "https://example.com/geo.srs", DownloadDetour: "fast"}}
 
 	err := cfg.DeleteCompositeOutbound("fast", false)
 	if !errors.Is(err, ErrOutboundReferenced) {
@@ -511,6 +607,24 @@ func TestCompositeOutboundDeleteReferenced(t *testing.T) {
 	}
 	if err := cfg.DeleteCompositeOutbound("fast", true); err != nil {
 		t.Fatal(err)
+	}
+	if len(cfg.Route.Rules) != 0 {
+		t.Fatalf("route rule referencing deleted outbound should be removed, got %+v", cfg.Route.Rules)
+	}
+	if cfg.Route.Final != "direct" {
+		t.Fatalf("route.final = %q, want direct", cfg.Route.Final)
+	}
+	if len(cfg.Outbounds) != 1 || cfg.Outbounds[0].Tag != "sel" {
+		t.Fatalf("deleted outbound not removed: %+v", cfg.Outbounds)
+	}
+	if len(cfg.Outbounds[0].Outbounds) != 1 || cfg.Outbounds[0].Outbounds[0] != "keep" || cfg.Outbounds[0].Default != "" {
+		t.Fatalf("composite refs not cleaned: %+v", cfg.Outbounds[0])
+	}
+	if cfg.DNS.Servers[0].Detour != "" {
+		t.Fatalf("dns detour not cleared: %+v", cfg.DNS.Servers[0])
+	}
+	if cfg.Route.RuleSet[0].DownloadDetour != "" {
+		t.Fatalf("download_detour not cleared: %+v", cfg.Route.RuleSet[0])
 	}
 }
 

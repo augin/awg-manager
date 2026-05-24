@@ -208,3 +208,44 @@ func TestComputeIssues_NilDepsCatalogs(t *testing.T) {
 		t.Errorf("nil catalogs: want 1 orphan for rule#1 tag=ghost, got %#v", got)
 	}
 }
+
+func TestComputeIssues_DetectsOutboundAndRuleSetRefs(t *testing.T) {
+	svc := &ServiceImpl{deps: Deps{}}
+	cfg := &RouterConfig{
+		Outbounds: []Outbound{{Tag: "ok", Type: "selector", Outbounds: []string{"ghost-member"}, Default: "ghost-default"}},
+		Route: Route{
+			Final:   "ghost-final",
+			RuleSet: []RuleSet{{Tag: "known", DownloadDetour: "ghost-download"}},
+			Rules: []Rule{{
+				Type: "logical", Mode: "or",
+				Rules:  []Rule{{RuleSet: []string{"missing-rs"}, Action: "route", Outbound: "ghost-nested"}},
+				Action: "route", Outbound: "ok",
+			}},
+		},
+		DNS: DNS{
+			Servers: []DNSServer{{Tag: "dns", Type: "udp", Server: "1.1.1.1", Detour: "ghost-detour"}},
+			Rules:   []DNSRule{{RuleSet: []string{"missing-dns-rs"}, Server: "dns"}},
+		},
+	}
+	got := svc.computeIssues(cfg)
+	want := map[string]bool{
+		"ghost-final":    false,
+		"ghost-member":   false,
+		"ghost-default":  false,
+		"ghost-download": false,
+		"ghost-nested":   false,
+		"ghost-detour":   false,
+		"missing-rs":     false,
+		"missing-dns-rs": false,
+	}
+	for _, issue := range got {
+		if _, ok := want[issue.Tag]; ok {
+			want[issue.Tag] = true
+		}
+	}
+	for tag, seen := range want {
+		if !seen {
+			t.Errorf("missing issue for %q in %#v", tag, got)
+		}
+	}
+}

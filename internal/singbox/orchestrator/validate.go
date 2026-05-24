@@ -12,7 +12,7 @@ import (
 // References (when set) names what was referenced.
 type ValidationError struct {
 	Slot    Slot
-	Kind    string // "duplicate-outbound" / "duplicate-inbound" / "duplicate-dns" / "unknown-outbound"
+	Kind    string // "duplicate-outbound" / "duplicate-inbound" / "duplicate-dns" / "unknown-outbound" / "unknown-rule-set"
 	Tag     string // the offending tag value
 	InRule  string // optional: human-readable location (e.g. "rules[3]" or "selector default")
 	Message string
@@ -76,15 +76,10 @@ func (o *Orchestrator) validateWith(bytesFor func(Slot) ([]byte, error)) Validat
 	outbounds := map[string]tagOrigin{}
 	inbounds := map[string]tagOrigin{}
 	dnsServers := map[string]tagOrigin{}
+	ruleSetsBySlot := map[Slot]map[string]bool{}
 	var errs []ValidationError
 
-	type sectionRefs struct {
-		slot   Slot
-		rules  []ruleSection
-		finals []finalSection
-		sels   []selSection
-	}
-	var pending []sectionRefs
+	var pending []validationSectionRefs
 
 	type orderedSlot struct {
 		slot Slot
@@ -168,16 +163,28 @@ func (o *Orchestrator) validateWith(bytesFor func(Slot) ([]byte, error)) Validat
 				dnsServers[ds.Tag] = tagOrigin{slot: os.slot}
 			}
 		}
+		ruleSetTags := make(map[string]bool, len(c.Route.RuleSet))
+		for _, ruleSet := range c.Route.RuleSet {
+			if ruleSet.Tag != "" {
+				ruleSetTags[ruleSet.Tag] = true
+			}
+		}
+		ruleSetsBySlot[os.slot] = ruleSetTags
 
 		// Collect refs to check after we have the full outbound set.
-		rs := sectionRefs{slot: os.slot}
+		rs := validationSectionRefs{slot: os.slot}
 		for i, r := range c.Route.Rules {
-			if r.Outbound != "" {
-				rs.rules = append(rs.rules, ruleSection{idx: i, outbound: r.Outbound})
-			}
+			collectRuleRefs(&rs, r, fmt.Sprintf("route.rules[%d]", i), i)
 		}
 		if c.Route.Final != "" {
 			rs.finals = append(rs.finals, finalSection{outbound: c.Route.Final})
+		}
+		for i, ruleSet := range c.Route.RuleSet {
+			if ruleSet.DownloadDetour != "" {
+				rs.sels = append(rs.sels, selSection{
+					parentTag: ruleSet.Tag, kind: "download_detour", idx: i, refTag: ruleSet.DownloadDetour,
+				})
+			}
 		}
 		for i, ob := range c.Outbounds {
 			for j, member := range ob.Outbounds {
@@ -189,6 +196,18 @@ func (o *Orchestrator) validateWith(bytesFor func(Slot) ([]byte, error)) Validat
 				rs.sels = append(rs.sels, selSection{
 					parentTag: ob.Tag, kind: "default", idx: i, refTag: ob.Default,
 				})
+			}
+		}
+		for i, ds := range c.DNS.Servers {
+			if ds.Detour != "" {
+				rs.sels = append(rs.sels, selSection{
+					parentTag: ds.Tag, kind: "dns_detour", idx: i, refTag: ds.Detour,
+				})
+			}
+		}
+		for i, r := range c.DNS.Rules {
+			for _, tag := range r.RuleSet {
+				rs.ruleSets = append(rs.ruleSets, ruleSetSection{idx: i, refTag: tag, inRule: fmt.Sprintf("dns.rules[%d].rule_set", i)})
 			}
 		}
 		pending = append(pending, rs)
@@ -216,7 +235,7 @@ func (o *Orchestrator) validateWith(bytesFor func(Slot) ([]byte, error)) Validat
 					Slot:    rs.slot,
 					Kind:    "unknown-outbound",
 					Tag:     r.outbound,
-					InRule:  fmt.Sprintf("route.rules[%d]", r.idx),
+					InRule:  r.inRule,
 					Message: "no slot declares this outbound tag",
 				})
 			}
@@ -237,6 +256,10 @@ func (o *Orchestrator) validateWith(bytesFor func(Slot) ([]byte, error)) Validat
 				where := fmt.Sprintf("outbounds[%d=%q].%s", s.idx, s.parentTag, s.kind)
 				if s.kind == "members" {
 					where = fmt.Sprintf("outbounds[%d=%q].outbounds[%d]", s.idx, s.parentTag, s.memberIdx)
+				} else if s.kind == "download_detour" {
+					where = fmt.Sprintf("route.rule_set[%d=%q].download_detour", s.idx, s.parentTag)
+				} else if s.kind == "dns_detour" {
+					where = fmt.Sprintf("dns.servers[%d=%q].detour", s.idx, s.parentTag)
 				}
 				errs = append(errs, ValidationError{
 					Slot:    rs.slot,
@@ -244,6 +267,18 @@ func (o *Orchestrator) validateWith(bytesFor func(Slot) ([]byte, error)) Validat
 					Tag:     s.refTag,
 					InRule:  where,
 					Message: "no slot declares this outbound tag",
+				})
+			}
+		}
+		ruleSets := ruleSetsBySlot[rs.slot]
+		for _, r := range rs.ruleSets {
+			if !ruleSets[r.refTag] {
+				errs = append(errs, ValidationError{
+					Slot:    rs.slot,
+					Kind:    "unknown-rule-set",
+					Tag:     r.refTag,
+					InRule:  r.inRule,
+					Message: "slot does not declare this rule_set tag",
 				})
 			}
 		}
@@ -301,25 +336,48 @@ type outboundJSON struct {
 }
 
 type routeJSON struct {
-	Final string     `json:"final,omitempty"`
-	Rules []ruleJSON `json:"rules,omitempty"`
+	Final   string        `json:"final,omitempty"`
+	Rules   []ruleJSON    `json:"rules,omitempty"`
+	RuleSet []ruleSetJSON `json:"rule_set,omitempty"`
 }
 
 type ruleJSON struct {
-	Outbound string `json:"outbound"`
+	Outbound string     `json:"outbound"`
+	RuleSet  []string   `json:"rule_set,omitempty"`
+	Rules    []ruleJSON `json:"rules,omitempty"`
+}
+
+type ruleSetJSON struct {
+	Tag            string `json:"tag"`
+	DownloadDetour string `json:"download_detour,omitempty"`
 }
 
 type dnsJSON struct {
 	Servers []dnsServerJSON `json:"servers,omitempty"`
+	Rules   []dnsRuleJSON   `json:"rules,omitempty"`
 }
 
 type dnsServerJSON struct {
-	Tag string `json:"tag"`
+	Tag    string `json:"tag"`
+	Detour string `json:"detour,omitempty"`
+}
+
+type dnsRuleJSON struct {
+	RuleSet []string `json:"rule_set,omitempty"`
+}
+
+type validationSectionRefs struct {
+	slot     Slot
+	rules    []ruleSection
+	finals   []finalSection
+	sels     []selSection
+	ruleSets []ruleSetSection
 }
 
 type ruleSection struct {
 	idx      int
 	outbound string
+	inRule   string
 }
 
 type finalSection struct {
@@ -328,10 +386,28 @@ type finalSection struct {
 
 type selSection struct {
 	parentTag string
-	kind      string // "members" / "default"
+	kind      string // "members" / "default" / "download_detour" / "dns_detour"
 	idx       int
 	memberIdx int
 	refTag    string
+}
+
+type ruleSetSection struct {
+	idx    int
+	refTag string
+	inRule string
+}
+
+func collectRuleRefs(refs *validationSectionRefs, rule ruleJSON, path string, topIndex int) {
+	if rule.Outbound != "" {
+		refs.rules = append(refs.rules, ruleSection{idx: topIndex, outbound: rule.Outbound, inRule: path})
+	}
+	for _, tag := range rule.RuleSet {
+		refs.ruleSets = append(refs.ruleSets, ruleSetSection{idx: topIndex, refTag: tag, inRule: path + ".rule_set"})
+	}
+	for i, nested := range rule.Rules {
+		collectRuleRefs(refs, nested, fmt.Sprintf("%s.rules[%d]", path, i), topIndex)
+	}
 }
 
 func readIfExists(path string) ([]byte, error) {

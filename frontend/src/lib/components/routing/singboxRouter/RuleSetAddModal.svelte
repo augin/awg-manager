@@ -361,7 +361,7 @@ geosite:xai`;
 		busy = true;
 		error = '';
 		try {
-			const cleanTag = isEditing ? (ruleSet?.tag ?? '') : tag.trim();
+			const cleanTag = tag.trim();
 			const tagErr = validateRuleSetTag(cleanTag);
 			if (tagErr) {
 				error = tagErr;
@@ -457,9 +457,9 @@ geosite:xai`;
 
 		<label class="field">
 			<div class="lbl">Tag (имя)</div>
-			<input bind:value={tag} placeholder="geosite-example" disabled={isEditing} />
+			<input bind:value={tag} placeholder="geosite-example" />
 			{#if isEditing}
-				<div class="hint">Tag нельзя менять у существующего набора.</div>
+				<div class="hint">При переименовании ссылки в правилах маршрутизации и DNS обновятся автоматически.</div>
 			{:else}
 				<div class="hint">Не используйте суффикс -srs — он добавляется автоматически для скомпилированного набора.</div>
 			{/if}

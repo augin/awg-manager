@@ -88,6 +88,63 @@ func TestValidateUnknownOutboundInRule(t *testing.T) {
 	}
 }
 
+func TestValidateUnknownOutboundInNestedRule(t *testing.T) {
+	o, dir := newTestOrch(t)
+	_ = o.Register(SlotMeta{Slot: SlotRouter, Filename: "20-router.json"})
+	if err := o.Bootstrap(); err != nil {
+		t.Fatal(err)
+	}
+	writeSlot(t, dir, "20-router.json", `{"route":{"rules":[{"type":"logical","mode":"or","rules":[{"outbound":"ghost"}]}]}}`)
+	o.enabled[SlotRouter] = true
+	res := o.Validate()
+	if !strings.Contains(res.Error(), "unknown-outbound") || !strings.Contains(res.Error(), "route.rules[0].rules[0]") {
+		t.Errorf("missing nested unknown-outbound: %s", res.Error())
+	}
+}
+
+func TestValidateUnknownOutboundInDetours(t *testing.T) {
+	o, dir := newTestOrch(t)
+	_ = o.Register(SlotMeta{Slot: SlotRouter, Filename: "20-router.json"})
+	if err := o.Bootstrap(); err != nil {
+		t.Fatal(err)
+	}
+	writeSlot(t, dir, "20-router.json", `{
+		"route":{"rule_set":[{"tag":"geo","type":"remote","download_detour":"ghost-rs"}]},
+		"dns":{"servers":[{"tag":"dns","detour":"ghost-dns"}]}
+	}`)
+	o.enabled[SlotRouter] = true
+	res := o.Validate()
+	if !strings.Contains(res.Error(), "ghost-rs") || !strings.Contains(res.Error(), "route.rule_set[0=\"geo\"].download_detour") {
+		t.Errorf("missing rule_set download_detour error: %s", res.Error())
+	}
+	if !strings.Contains(res.Error(), "ghost-dns") || !strings.Contains(res.Error(), "dns.servers[0=\"dns\"].detour") {
+		t.Errorf("missing dns detour error: %s", res.Error())
+	}
+}
+
+func TestValidateUnknownRuleSetRefs(t *testing.T) {
+	o, dir := newTestOrch(t)
+	_ = o.Register(SlotMeta{Slot: SlotRouter, Filename: "20-router.json"})
+	if err := o.Bootstrap(); err != nil {
+		t.Fatal(err)
+	}
+	writeSlot(t, dir, "20-router.json", `{
+		"route":{"rule_set":[{"tag":"known"}],"rules":[{"rule_set":["known","missing-route"]}]},
+		"dns":{"rules":[{"rule_set":["missing-dns"]}]}
+	}`)
+	o.enabled[SlotRouter] = true
+	res := o.Validate()
+	if !strings.Contains(res.Error(), "unknown-rule-set") {
+		t.Fatalf("missing unknown-rule-set: %s", res.Error())
+	}
+	if !strings.Contains(res.Error(), "missing-route") || !strings.Contains(res.Error(), "route.rules[0].rule_set") {
+		t.Errorf("missing route rule_set error: %s", res.Error())
+	}
+	if !strings.Contains(res.Error(), "missing-dns") || !strings.Contains(res.Error(), "dns.rules[0].rule_set") {
+		t.Errorf("missing dns rule_set error: %s", res.Error())
+	}
+}
+
 func TestValidateBuiltinOutboundsAccepted(t *testing.T) {
 	o, dir := newTestOrch(t)
 	_ = o.Register(SlotMeta{Slot: SlotRouter, Filename: "20-router.json"})

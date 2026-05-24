@@ -73,10 +73,10 @@ type SingboxRouterSettingsData struct {
 	WANInterface  string `json:"wanInterface,omitempty" example:"ppp0"`
 	// BypassPresets lists active named port-bypass presets.
 	// Valid values: "l2tp", "ntp", "netbios-smb".
-	BypassPresets    []string `json:"bypassPresets,omitempty" example:"l2tp"`
+	BypassPresets []string `json:"bypassPresets,omitempty" example:"l2tp"`
 	// BypassExtraPorts is a user-defined comma-separated list of extra
 	// port exclusions in "PORT UDP|TCP" format (e.g. "51820 UDP, 1194 TCP").
-	BypassExtraPorts string   `json:"bypassExtraPorts,omitempty" example:"51820 UDP"`
+	BypassExtraPorts string `json:"bypassExtraPorts,omitempty" example:"51820 UDP"`
 }
 
 // SingboxRouterSettingsResponse is the envelope for GET /singbox/router/settings.
@@ -646,7 +646,7 @@ func (h *SingboxRouterHandler) AddRuleSet(w http.ResponseWriter, r *http.Request
 // UpdateRuleSet replaces the ruleset identified by tag with new content.
 //
 //	@Summary		Update singbox-router ruleset
-//	@Description	Replaces the ruleset identified by tag with new content. Tag rename is not supported.
+//	@Description	Replaces the ruleset identified by tag with new content. If the payload tag differs, references are renamed atomically.
 //	@Tags			singbox-router
 //	@Accept			json
 //	@Produce		json

@@ -1331,17 +1331,121 @@ func (s *ServiceImpl) computeIssues(cfg *RouterConfig) []Issue {
 		}
 	}
 	for i, r := range cfg.Route.Rules {
-		if r.Action == "route" && r.Outbound != "" && r.Outbound != "direct" {
-			if _, ok := outboundTags[r.Outbound]; !ok {
+		issues = append(issues, s.computeRuleOutboundIssues(r, i, outboundTags)...)
+	}
+	if cfg.Route.Final != "" && !isKnownOutboundRef(cfg.Route.Final, outboundTags) {
+		issues = append(issues, Issue{
+			Severity: "warning",
+			Kind:     "orphan-outbound",
+			Tag:      cfg.Route.Final,
+			Message:  fmt.Sprintf("route.final ссылается на несуществующий outbound %q", cfg.Route.Final),
+		})
+	}
+	for i, o := range cfg.Outbounds {
+		for _, member := range o.Outbounds {
+			if !isKnownOutboundRef(member, outboundTags) {
 				issues = append(issues, Issue{
-					Severity:  "warning",
-					Kind:      "orphan-rule",
-					RuleIndex: i,
-					Tag:       r.Outbound,
-					Message:   fmt.Sprintf("правило ссылается на несуществующий outbound %q", r.Outbound),
+					Severity: "warning",
+					Kind:     "orphan-outbound",
+					Tag:      member,
+					Message:  fmt.Sprintf("outbound %q содержит несуществующий member %q", o.Tag, member),
 				})
 			}
 		}
+		if o.Default != "" && !isKnownOutboundRef(o.Default, outboundTags) {
+			issues = append(issues, Issue{
+				Severity:  "warning",
+				Kind:      "orphan-outbound",
+				RuleIndex: i,
+				Tag:       o.Default,
+				Message:   fmt.Sprintf("outbound %q использует несуществующий default %q", o.Tag, o.Default),
+			})
+		}
+	}
+	for _, srv := range cfg.DNS.Servers {
+		if srv.Detour != "" && !isKnownOutboundRef(srv.Detour, outboundTags) {
+			issues = append(issues, Issue{
+				Severity: "warning",
+				Kind:     "orphan-outbound",
+				Tag:      srv.Detour,
+				Message:  fmt.Sprintf("DNS server %q использует несуществующий detour %q", srv.Tag, srv.Detour),
+			})
+		}
+	}
+	for _, rs := range cfg.Route.RuleSet {
+		if rs.DownloadDetour != "" && !isKnownOutboundRef(rs.DownloadDetour, outboundTags) {
+			issues = append(issues, Issue{
+				Severity: "warning",
+				Kind:     "orphan-outbound",
+				Tag:      rs.DownloadDetour,
+				Message:  fmt.Sprintf("rule_set %q использует несуществующий download_detour %q", rs.Tag, rs.DownloadDetour),
+			})
+		}
+	}
+
+	ruleSetTags := make(map[string]struct{}, len(cfg.Route.RuleSet))
+	for _, rs := range cfg.Route.RuleSet {
+		ruleSetTags[rs.Tag] = struct{}{}
+	}
+	for i, r := range cfg.Route.Rules {
+		issues = append(issues, computeRuleSetIssuesInRouteRule(r, i, ruleSetTags)...)
+	}
+	for i, r := range cfg.DNS.Rules {
+		for _, tag := range r.RuleSet {
+			if _, ok := ruleSetTags[tag]; !ok {
+				issues = append(issues, Issue{
+					Severity:  "warning",
+					Kind:      "orphan-rule-set",
+					RuleIndex: i,
+					Tag:       tag,
+					Message:   fmt.Sprintf("DNS-правило ссылается на несуществующий rule_set %q", tag),
+				})
+			}
+		}
+	}
+	return issues
+}
+
+func (s *ServiceImpl) computeRuleOutboundIssues(r Rule, index int, outboundTags map[string]struct{}) []Issue {
+	var issues []Issue
+	if r.Action == "route" && r.Outbound != "" && !isKnownOutboundRef(r.Outbound, outboundTags) {
+		issues = append(issues, Issue{
+			Severity:  "warning",
+			Kind:      "orphan-rule",
+			RuleIndex: index,
+			Tag:       r.Outbound,
+			Message:   fmt.Sprintf("правило ссылается на несуществующий outbound %q", r.Outbound),
+		})
+	}
+	for _, nested := range r.Rules {
+		issues = append(issues, s.computeRuleOutboundIssues(nested, index, outboundTags)...)
+	}
+	return issues
+}
+
+func isKnownOutboundRef(tag string, outboundTags map[string]struct{}) bool {
+	if tag == "direct" || tag == "block" || tag == "dns" {
+		return true
+	}
+	_, ok := outboundTags[tag]
+	return ok
+}
+
+func computeRuleSetIssuesInRouteRule(r Rule, index int, ruleSetTags map[string]struct{}) []Issue {
+	var issues []Issue
+	for _, tag := range r.RuleSet {
+		if _, ok := ruleSetTags[tag]; !ok {
+			issues = append(issues, Issue{
+				Severity:  "warning",
+				Kind:      "orphan-rule-set",
+				RuleIndex: index,
+				Tag:       tag,
+				Message:   fmt.Sprintf("правило ссылается на несуществующий rule_set %q", tag),
+			})
+		}
+	}
+	for _, nested := range r.Rules {
+		issues = append(issues, computeRuleSetIssuesInRouteRule(nested, index, ruleSetTags)...)
 	}
 	return issues
 }
