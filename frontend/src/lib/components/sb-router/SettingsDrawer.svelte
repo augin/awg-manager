@@ -8,6 +8,7 @@
   import { singboxRouter as singboxRouterStore } from '$lib/stores/singboxRouter';
   import { notifications } from '$lib/stores/notifications';
   import { Toggle, SideDrawer } from '$lib/components/ui';
+  import OutboundOption from './OutboundOption.svelte';
   import { api } from '$lib/api/client';
   import type { SingboxRouterSettings, SingboxRouterWANInterface } from '$lib/types';
 
@@ -112,27 +113,21 @@
       <!-- Section 1: deviceMode -->
       <section class="sec">
         <div class="sec-cap">Режим работы</div>
-        <div class="field">
-          <label class="radio">
-            <input
-              type="radio"
-              name="deviceMode"
-              value="policy"
-              checked={$storeSettings.deviceMode !== 'all'}
-              onchange={() => setDeviceMode('policy')}
-            />
-            <span>Только устройства policy</span>
-          </label>
-          <label class="radio">
-            <input
-              type="radio"
-              name="deviceMode"
-              value="all"
-              checked={$storeSettings.deviceMode === 'all'}
-              onchange={() => setDeviceMode('all')}
-            />
-            <span>Весь роутер</span>
-          </label>
+        <div class="card-grid">
+          <OutboundOption
+            label="Только устройства policy"
+            sub="трафик из назначенной policy"
+            tone="accent"
+            selected={$storeSettings.deviceMode !== 'all'}
+            onclick={() => setDeviceMode('policy')}
+          />
+          <OutboundOption
+            label="Весь роутер"
+            sub="весь LAN-трафик"
+            tone="accent"
+            selected={$storeSettings.deviceMode === 'all'}
+            onclick={() => setDeviceMode('all')}
+          />
         </div>
         {#if $storeSettings.deviceMode !== 'all'}
           <div class="field">
@@ -227,27 +222,21 @@
       <!-- Section 5: refresh schedule -->
       <section class="sec">
         <div class="sec-cap">Расписание обновлений гео-данных</div>
-        <div class="field">
-          <label class="radio">
-            <input
-              type="radio"
-              name="refreshMode"
-              value="interval"
-              checked={($storeSettings.refreshMode ?? 'interval') === 'interval'}
-              onchange={() => setRefreshMode('interval')}
-            />
-            <span>По интервалу</span>
-          </label>
-          <label class="radio">
-            <input
-              type="radio"
-              name="refreshMode"
-              value="daily"
-              checked={$storeSettings.refreshMode === 'daily'}
-              onchange={() => setRefreshMode('daily')}
-            />
-            <span>Ежедневно</span>
-          </label>
+        <div class="card-grid">
+          <OutboundOption
+            label="По интервалу"
+            sub="каждые N часов"
+            tone="accent"
+            selected={($storeSettings.refreshMode ?? 'interval') === 'interval'}
+            onclick={() => setRefreshMode('interval')}
+          />
+          <OutboundOption
+            label="Ежедневно"
+            sub="в указанное время"
+            tone="accent"
+            selected={$storeSettings.refreshMode === 'daily'}
+            onclick={() => setRefreshMode('daily')}
+          />
         </div>
         {#if ($storeSettings.refreshMode ?? 'interval') === 'interval'}
           <div class="field">
@@ -337,15 +326,15 @@
     font-size: 12.5px;
     font-family: inherit;
   }
-  .radio {
-    display: flex;
-    align-items: center;
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
-    font-size: 13px;
-    cursor: pointer;
   }
-  .radio input {
-    accent-color: var(--accent);
+  @media (max-width: 480px) {
+    .card-grid {
+      grid-template-columns: 1fr;
+    }
   }
   .hint {
     margin: 0;

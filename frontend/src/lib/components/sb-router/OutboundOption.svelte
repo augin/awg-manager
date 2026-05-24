@@ -9,10 +9,10 @@
   type Tone = 'accent' | 'muted' | 'error';
 
   interface Props {
-    icon: Snippet;
+    icon?: Snippet;
     label: string;
     sub: string;
-    count: string;
+    count?: string;
     tone: Tone;
     selected: boolean;
     onclick: () => void;
@@ -22,12 +22,12 @@
 </script>
 
 <button type="button" class="opt tone-{tone}" class:selected aria-pressed={selected} {onclick}>
-  <div class="icon">{@render icon()}</div>
+  {#if icon}<div class="icon">{@render icon()}</div>{/if}
   <div class="text">
     <div class="label">{label}</div>
     <div class="sub">{sub}</div>
   </div>
-  <div class="count">{count}</div>
+  {#if count}<div class="count">{count}</div>{/if}
   {#if selected}
     <div class="check"><Check size={10} color="#fff" /></div>
   {/if}
@@ -47,7 +47,6 @@
     flex-direction: column;
     gap: 8px;
     position: relative;
-    min-height: 110px;
   }
   .opt.selected.tone-accent {
     background: color-mix(in srgb, var(--accent) 10%, var(--bg-tertiary));
