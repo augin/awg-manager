@@ -150,7 +150,7 @@
         <div class="chips">
           <TemplatesFilterChip label="Все" value="all" active={$templatesFilter === 'all'} count={counts.all} onclick={() => setFilter('all')} />
           <TemplatesFilterChip label="Сервисы" value="services" active={$templatesFilter === 'services'} count={counts.services} onclick={() => setFilter('services')} />
-          <TemplatesFilterChip label="Сервисные наборы" value="rulesets" active={$templatesFilter === 'rulesets'} count={counts.rulesets} onclick={() => setFilter('rulesets')} />
+          <TemplatesFilterChip label="Наборы доменов и CIDR" value="rulesets" active={$templatesFilter === 'rulesets'} count={counts.rulesets} onclick={() => setFilter('rulesets')} />
         </div>
       </div>
 
@@ -336,8 +336,8 @@
     }
   }
   .rs-list {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 4px;
   }
   .fail {

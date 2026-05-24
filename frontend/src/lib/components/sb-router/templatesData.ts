@@ -75,7 +75,7 @@ export function buildTemplateList(
   if (rss.length > 0) {
     groups.push({
       category: 'rulesets',
-      title: 'Сервисные наборы',
+      title: 'Наборы доменов и CIDR',
       hint: 'rule_set уже в config',
       items: rss,
     });
