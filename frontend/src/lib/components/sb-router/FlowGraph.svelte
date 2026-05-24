@@ -24,6 +24,7 @@
 
 <script lang="ts">
   import { singboxRouter as singboxRouterStore } from '$lib/stores/singboxRouter';
+  import { systemInfo } from '$lib/stores/system';
   import { StatusDot } from '$lib/components/ui';
   import FlowStation from './FlowStation.svelte';
   import FlowArrow from './FlowArrow.svelte';
@@ -40,13 +41,22 @@
   let devicesCount = $derived(s?.deviceCount ?? 0);
   let rulesCount = $derived(s?.ruleCount ?? 0);
   let policyName = $derived(s?.policyName || '—');
+  let deviceMode = $derived(s?.deviceMode);
+  let singboxVersion = $derived($systemInfo.data?.singbox?.version ?? '');
 
   let outboundList = $derived(deriveOutboundList(ob ?? []));
   let totalOutbounds = $derived((ob ?? []).length);
   let directItems = $derived(outboundList.items.filter((i) => i.kind === 'direct'));
   let tunnelItems = $derived(outboundList.items.filter((i) => i.kind === 'tunnel'));
 
-  let rulesSub = $derived(engineOn ? `${rulesCount} правил · first-match` : 'выключен');
+  let modeLabel = $derived(deviceMode === 'all' ? 'весь роутер' : 'policy');
+
+  let rulesSub = $derived.by(() => {
+    if (!engineOn) return 'выключен';
+    const parts = ['first-match', modeLabel];
+    if (singboxVersion) parts.push(`v${singboxVersion}`);
+    return parts.join(' · ');
+  });
   let devicesSub = $derived(`policy: ${policyName}`);
 </script>
 

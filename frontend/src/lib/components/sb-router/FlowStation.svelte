@@ -107,6 +107,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    min-height: 22px;
   }
   .icon-row.tone-accent  { color: var(--accent); }
   .icon-row.tone-success { color: var(--success); }
