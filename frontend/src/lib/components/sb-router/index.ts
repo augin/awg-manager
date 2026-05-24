@@ -32,3 +32,20 @@ export { default as FlowStation } from './FlowStation.svelte';
 export type { FlowStationTone } from './FlowStation.svelte';
 export { default as FlowArrow } from './FlowArrow.svelte';
 export { deriveOutboundList, type FlowOutbound, type FlowOutboundTone } from './flowData';
+
+// F4b — Trace Screen
+export { default as TracePanel } from './TracePanel.svelte';
+export { default as TracePathStation } from './TracePathStation.svelte';
+export type { TracePathTone } from './TracePathStation.svelte';
+export { default as TraceRuleRow } from './TraceRuleRow.svelte';
+export {
+  traceOpen,
+  traceInput,
+  traceResult,
+  traceLoading,
+  traceError,
+  openTrace,
+  closeTrace,
+  runTrace,
+  type TraceInput,
+} from './traceStore';
