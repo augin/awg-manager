@@ -12,6 +12,8 @@
   import { singboxRouter as singboxRouterStore } from '$lib/stores/singboxRouter';
   import { SectionLabel, Button } from '$lib/components/ui';
   import { openTrace } from './traceStore';
+  import { openTemplatesModal } from './templatesStore';
+  import TemplatesModal from './TemplatesModal.svelte';
   import RuleCard from './RuleCard.svelte';
   import { singboxRuleToCard } from './adapters';
   import type { RuleCardData } from './types';
@@ -62,6 +64,9 @@
       <div class="counter">
         {count} {pluralRules(count)}
       </div>
+      <Button variant="primary" size="sm" onclick={() => openTemplatesModal()}>
+        + Из шаблона
+      </Button>
       <Button variant="secondary" size="sm" onclick={(_e) => openTrace()}>
         Куда поедет?
       </Button>
@@ -84,6 +89,8 @@
     </div>
   {/if}
 </section>
+
+<TemplatesModal />
 
 <style>
   .rules-panel {

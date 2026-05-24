@@ -49,3 +49,22 @@ export {
   runTrace,
   type TraceInput,
 } from './traceStore';
+
+// F5a — Templates Modal
+export { default as TemplatesModal } from './TemplatesModal.svelte';
+export { default as TemplatesFilterChip } from './TemplatesFilterChip.svelte';
+export { default as TemplatesGroup } from './TemplatesGroup.svelte';
+export { default as TemplateServiceTile } from './TemplateServiceTile.svelte';
+export { default as TemplateRsRow } from './TemplateRsRow.svelte';
+export { default as TemplatesFooter } from './TemplatesFooter.svelte';
+export {
+  templatesOpen, templatesSelection, templatesFilter, templatesQuery, templatesOutbound,
+  openTemplatesModal, closeTemplatesModal, toggleTemplate, clearSelection,
+  setFilter, setQuery, setOutbound,
+} from './templatesStore';
+export {
+  buildTemplateList, filterByCategory, countByCategory,
+  type TemplateCategory, type FilterKey, type ServiceTemplate, type RulesetTemplate,
+  type TemplateItem, type TemplateGroup,
+} from './templatesData';
+export { submitTemplates, type SubmitResult } from './templatesActions';
