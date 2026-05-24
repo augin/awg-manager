@@ -12,7 +12,7 @@
 
 <script lang="ts">
   interface Props {
-    icon: Snippet;
+    icon?: Snippet;
     tone: FlowStationTone;
     title: string;
     metric?: number | null;
@@ -37,7 +37,7 @@
 
 {#snippet inner()}
   <div class="icon-row tone-{tone}">
-    {@render icon()}
+    {#if icon}{@render icon()}{/if}
     <span class="title">{title}</span>
   </div>
   <div class="metric-row">
