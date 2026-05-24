@@ -358,4 +358,30 @@
     font-size: 13px;
     color: var(--text-muted);
   }
+
+  @media (max-width: 768px) {
+    /* Input card: stack input-wrap + button vertically */
+    .input-card {
+      flex-direction: column;
+    }
+    .input-wrap {
+      width: 100%;
+    }
+
+    /* Path stations: collapse 5-col grid to single column */
+    .path {
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+    /* Rotate horizontal arrows to point downward */
+    .arrow {
+      transform: rotate(90deg);
+      justify-self: center;
+    }
+
+    /* result-hero padding tighter */
+    .result-hero {
+      padding: 12px;
+    }
+  }
 </style>
