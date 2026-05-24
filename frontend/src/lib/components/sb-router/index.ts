@@ -118,3 +118,6 @@ export {
   setManualWan,
   enableEngine,
 } from './emptyStateActions';
+
+// F6 — RuleSetsTable
+export { default as RuleSetsTable } from './RuleSetsTable.svelte';
