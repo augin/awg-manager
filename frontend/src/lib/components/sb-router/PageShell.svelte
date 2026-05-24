@@ -5,7 +5,9 @@
 
 <script lang="ts">
   import { mode, setMode, type RouterMode } from './modeStore';
+  import { openDrawer } from './drawerStore';
   import { Badge } from '$lib/components/ui';
+  import StatusDrawer from './StatusDrawer.svelte';
 
   interface Props {
     /** Текущий статус движка sing-box. Влияет только на цвет pill. */
@@ -46,9 +48,11 @@
     </div>
 
     <div class="status-slot">
-      <Badge variant={STATUS_VARIANT[engineStatus]} size="md">
-        {STATUS_LABEL[engineStatus]}
-      </Badge>
+      <button type="button" class="pill-button" onclick={openDrawer} aria-label="Открыть состояние">
+        <Badge variant={STATUS_VARIANT[engineStatus]} size="md">
+          {STATUS_LABEL[engineStatus]}
+        </Badge>
+      </button>
     </div>
 
     <div class="mode-toggle" role="tablist" aria-label="Режим интерфейса">
@@ -73,6 +77,8 @@
     {@render children()}
   </div>
 </div>
+
+<StatusDrawer />
 
 <style>
   .sb-shell { display: flex; flex-direction: column; gap: var(--sp-4); }
@@ -131,4 +137,20 @@
   }
 
   .sb-body { width: 100%; }
+
+  .pill-button {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    border-radius: var(--radius-sm);
+    transition: opacity var(--t-fast);
+  }
+  .pill-button:hover { opacity: 0.85; }
+  .pill-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 </style>
