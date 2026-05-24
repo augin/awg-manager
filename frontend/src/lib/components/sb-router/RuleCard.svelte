@@ -174,4 +174,38 @@
     display: flex;
     gap: 2px;
   }
+
+  /* ── Mobile: stack vertically ── */
+  @media (max-width: 768px) {
+    /*
+     * Direct grid children: .order | .main | .action | .right-slot
+     * Row 1: order + main (service tile) + right-slot (badge/menu)
+     * Row 2: .main continues — chips wrap below service tile (flex-wrap inside .main)
+     * Row 3 (full-width): .action with dashed top border
+     *
+     * We use named grid areas on the 3 top-row children and let .action
+     * span all columns on row 2.
+     */
+    .card {
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      grid-template-rows: auto auto;
+      grid-template-areas:
+        "order main right"
+        "action action action";
+      row-gap: 0;
+      column-gap: 10px;
+    }
+
+    .order     { grid-area: order; align-self: start; padding-top: 4px; }
+    .main      { grid-area: main; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+    .right-slot { grid-area: right; align-self: start; padding-top: 2px; }
+
+    /* Arrow + OutboundTile — full-width row, dashed top border */
+    .action {
+      grid-area: action;
+      border-top: 1px dashed var(--border);
+      padding-top: 8px;
+      margin-top: 6px;
+    }
+  }
 </style>
