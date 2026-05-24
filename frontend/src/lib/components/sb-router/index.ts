@@ -129,3 +129,6 @@ export { default as SidePanel } from './SidePanel.svelte';
 export { default as StatStrip } from './StatStrip.svelte';
 export type { StatCellData } from './StatStrip.svelte';
 export { default as ExpertPanel } from './ExpertPanel.svelte';
+
+// F7 — Mobile
+export { default as MobileBottomBar } from './MobileBottomBar.svelte';
