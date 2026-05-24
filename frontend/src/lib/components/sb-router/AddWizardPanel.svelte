@@ -36,6 +36,7 @@
   } from './templatesStore';
   import { buildTemplateList } from './templatesData';
   import { submitWizard, ValidationError } from './addWizardActions';
+  import MobileBottomBar from './MobileBottomBar.svelte';
 
   const outbounds = singboxRouterStore.outbounds;
   const presets = singboxRouterStore.presets;
@@ -233,7 +234,7 @@
       </div>
     </WizardStep>
 
-    <div class="actions">
+    <div class="actions desktop-only">
       <Button variant="ghost" size="md" onclick={closeAddWizard} disabled={submitting}>Отмена</Button>
       <div class="actions-right">
         <Button variant="secondary" size="md" onclick={() => doSave(true)} disabled={!canSave || submitting}>
@@ -244,6 +245,14 @@
         </Button>
       </div>
     </div>
+
+    <MobileBottomBar>
+      <Button variant="ghost" size="sm" onclick={closeAddWizard} disabled={submitting}>Отмена</Button>
+      <div style="flex:1"></div>
+      <Button variant="primary" size="sm" onclick={() => doSave(false)} disabled={!canSave || submitting} iconBefore={iconCheck}>
+        Сохранить
+      </Button>
+    </MobileBottomBar>
 
     <TemplatesModal mode="collect" />
   </div>
@@ -400,5 +409,10 @@
   .actions-right {
     display: flex;
     gap: 6px;
+  }
+  @media (max-width: 768px) {
+    .actions.desktop-only {
+      display: none;
+    }
   }
 </style>
