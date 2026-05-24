@@ -24,7 +24,7 @@
     import ClientRoutesTab from './ClientRoutesTab.svelte';
     import { HrNeoTab } from '$lib/components/hrneo';
     import { SingboxRoutingPage } from '$lib/components/singbox-routing';
-    import { PageShell, RulesPanel, FlowGraph, TracePanel, traceOpen, AddWizardPanel, addWizardOpen, mode as sbMode, type EngineStatus } from '$lib/components/sb-router';
+    import { PageShell, RulesPanel, FlowGraph, TracePanel, traceOpen, AddWizardPanel, addWizardOpen, EmptyState, mode as sbMode, type EngineStatus } from '$lib/components/sb-router';
     import GeoDataTab from './GeoDataTab.svelte';
     import { isRoutingSubTabVisible, type RoutingSubTab, type UsageLevel } from '$lib/types/usageLevel';
     import { usageLevel } from '$lib/stores/settings';
@@ -175,6 +175,8 @@
 
     const singboxRouterStatus = singboxRouterStore.status;
     let singboxRuleCount = $derived($singboxRouterStatus?.ruleCount ?? 0);
+    const singboxRulesStore = singboxRouterStore.rules;
+    let singboxRulesCount = $derived($singboxRulesStore.length);
     let sbEngineStatus: EngineStatus = $derived.by(() => {
         const s = $singboxRouterStatus;
         if (!s || !s.installed) return 'unknown';
@@ -334,6 +336,8 @@
                     <AddWizardPanel />
                 {:else if $traceOpen}
                     <TracePanel />
+                {:else if !($singboxRouterStatus?.enabled ?? false) || singboxRulesCount === 0}
+                    <EmptyState />
                 {:else}
                     <FlowGraph />
                     <RulesPanel />
