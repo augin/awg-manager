@@ -25,3 +25,10 @@ export { default as DepRow } from './DepRow.svelte';
 export { default as IssueRow } from './IssueRow.svelte';
 export type { DepTone, DepEntry, IssueTone, IssueEntry } from './drawerData';
 export { deriveDeps, deriveIssues } from './drawerData';
+
+// F4a — FlowGraph hero
+export { default as FlowGraph } from './FlowGraph.svelte';
+export { default as FlowStation } from './FlowStation.svelte';
+export type { FlowStationTone } from './FlowStation.svelte';
+export { default as FlowArrow } from './FlowArrow.svelte';
+export { deriveOutboundList, type FlowOutbound, type FlowOutboundTone } from './flowData';
