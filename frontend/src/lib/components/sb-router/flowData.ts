@@ -10,6 +10,8 @@ import type { SingboxRouterOutbound } from '$lib/types';
 
 export type FlowOutboundTone = 'success' | 'error' | 'muted' | 'accent' | 'warning';
 
+export type FlowOutboundKind = 'direct' | 'tunnel';
+
 export interface FlowOutbound {
   /** Outbound tag (key, для дедупликации в #each). */
   tag: string;
@@ -17,6 +19,8 @@ export interface FlowOutbound {
   label: string;
   /** Цвет dot'а: см. tone mapping выше. */
   tone: FlowOutboundTone;
+  /** Группа: direct (muted tone) vs. tunnel (всё остальное — composite/wireguard/etc). */
+  kind: FlowOutboundKind;
 }
 
 const LABEL_MAX = 20;
@@ -53,10 +57,12 @@ export function deriveOutboundList(
   const visible = outbounds.slice(0, maxItems);
   const items: FlowOutbound[] = visible.map((o) => {
     const tag = (o as { tag?: string }).tag ?? '?';
+    const tone = classifyTone(o);
     return {
       tag,
       label: truncate(tag, LABEL_MAX),
-      tone: classifyTone(o),
+      tone,
+      kind: tone === 'muted' ? 'direct' : 'tunnel',
     };
   });
   const hiddenCount = Math.max(0, outbounds.length - visible.length);

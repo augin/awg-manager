@@ -1,8 +1,8 @@
 <!--
   Источник дизайна: singbox-router/project/parts/FlowGraph.jsx (FlowGraph)
-  Hero-баннер сверху Beginner view. 4 station'а + 3 arrow'а в grid layout.
-  Outbounds station — inline 2x2 grid с dot+label вместо FlowStation primitive.
-  Engine station клик → openDrawer (дублирует pill в PageShell header).
+  Hero-баннер сверху Beginner view. 3 station'а + 2 arrow'а в grid layout.
+  Отклонение от дизайна: убран Internet station (избыточный шум);
+  Outbounds → «ВЫХОДЫ», группированы по kind (direct / туннели).
 -->
 
 <script lang="ts" module>
@@ -43,6 +43,8 @@
 
   let outboundList = $derived(deriveOutboundList(ob ?? []));
   let totalOutbounds = $derived((ob ?? []).length);
+  let directItems = $derived(outboundList.items.filter((i) => i.kind === 'direct'));
+  let tunnelItems = $derived(outboundList.items.filter((i) => i.kind === 'tunnel'));
 
   let rulesSub = $derived(engineOn ? `${rulesCount} правил · first-match` : 'выключен');
   let devicesSub = $derived(`policy: ${policyName}`);
@@ -97,45 +99,45 @@
 
     <FlowArrow active={engineOn} />
 
-    <!-- Outbounds (inline tile, не FlowStation) -->
+    <!-- Выходы (inline tile, не FlowStation) — без Internet station -->
     <div class="outbounds">
-      <div class="outbounds-label">OUTBOUNDS · {totalOutbounds}</div>
+      <div class="outbounds-label">ВЫХОДЫ · {totalOutbounds}</div>
       {#if totalOutbounds === 0}
-        <div class="outbounds-empty">нет outbounds</div>
+        <div class="outbounds-empty">нет выходов</div>
       {:else}
-        <div class="outbounds-grid">
-          {#each outboundList.items as item (item.tag)}
-            <div class="ob-row">
-              <StatusDot variant={mapTone(item.tone)} size="sm" />
-              <span class="ob-label">{item.label}</span>
+        {#if directItems.length > 0}
+          <div class="ob-group">
+            <div class="ob-group-cap">прямой</div>
+            <div class="outbounds-grid">
+              {#each directItems as item (item.tag)}
+                <div class="ob-row">
+                  <StatusDot variant={mapTone(item.tone)} size="sm" />
+                  <span class="ob-label">{item.label}</span>
+                </div>
+              {/each}
             </div>
-          {/each}
-          {#if outboundList.hiddenCount > 0}
-            <div class="ob-row ob-more">
-              <span>+{outboundList.hiddenCount} ещё</span>
+          </div>
+        {/if}
+        {#if tunnelItems.length > 0}
+          <div class="ob-group">
+            <div class="ob-group-cap">туннели</div>
+            <div class="outbounds-grid">
+              {#each tunnelItems as item (item.tag)}
+                <div class="ob-row">
+                  <StatusDot variant={mapTone(item.tone)} size="sm" />
+                  <span class="ob-label">{item.label}</span>
+                </div>
+              {/each}
+              {#if outboundList.hiddenCount > 0}
+                <div class="ob-row ob-more">
+                  <span>+{outboundList.hiddenCount} ещё</span>
+                </div>
+              {/if}
             </div>
-          {/if}
-        </div>
+          </div>
+        {/if}
       {/if}
     </div>
-
-    <FlowArrow active={engineOn} />
-
-    <!-- Internet -->
-    <FlowStation
-      tone="info"
-      title="Интернет"
-      metric={null}
-      sub="через WAN/tunnel"
-    >
-      {#snippet icon()}
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="2" y1="12" x2="22" y2="12" />
-          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-        </svg>
-      {/snippet}
-    </FlowStation>
   </div>
 </div>
 
@@ -164,7 +166,7 @@
   .row {
     position: relative;
     display: grid;
-    grid-template-columns: 1fr auto 1fr auto 1.2fr auto 1fr;
+    grid-template-columns: 1fr auto 1fr auto 1.6fr;
     align-items: center;
     gap: 12px;
   }
@@ -191,6 +193,24 @@
     font-size: 11px;
     color: var(--text-muted);
     font-style: italic;
+  }
+  .ob-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ob-group + .ob-group {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px dashed var(--border);
+  }
+  .ob-group-cap {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    opacity: 0.7;
   }
   .outbounds-grid {
     display: grid;
