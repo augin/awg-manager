@@ -16,10 +16,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { Plus, Filter } from 'lucide-svelte';
   import { singboxRouter as singboxRouterStore } from '$lib/stores/singboxRouter';
   import { notifications } from '$lib/stores/notifications';
-  import { Button } from '$lib/components/ui';
   import { api } from '$lib/api/client';
   import { computeRuleSetUsage } from '$lib/components/routing/singboxRouter';
   import type { OutboundGroup } from '$lib/components/routing/singboxRouter/outboundOptions';
@@ -228,8 +226,6 @@
   }
 </script>
 
-{#snippet iconFilter()}<Filter size={12} />{/snippet}
-{#snippet iconPlus()}<Plus size={12} />{/snippet}
 
 <div class="wrap">
   <StatStrip cells={statCells} />
@@ -238,17 +234,15 @@
     <div class="col-main">
       <section class="section">
         <header class="sec-head">
-          <div>
+          <div class="sec-title-row">
             <h2 class="sec-title">Правила маршрутизации</h2>
-            <p class="sec-sub">first-match-wins · final → direct</p>
+            <span class="sec-count">· {$storeRules.length}</span>
           </div>
           <div class="sec-actions">
-            <Button variant="ghost" size="sm" iconBefore={iconFilter} onclick={() => {}}>Фильтр</Button>
-            <Button variant="primary" size="sm" iconBefore={iconPlus} onclick={() => openAddWizard()}>
-              Правило
-            </Button>
+            <button type="button" class="action" onclick={() => openAddWizard()}>+ Правило</button>
           </div>
         </header>
+        <p class="sec-sub">first-match-wins · final → direct</p>
         <RoutingTable
           rules={$storeRules}
           outbounds={$storeOutbounds}
@@ -260,16 +254,15 @@
 
       <section class="section">
         <header class="sec-head">
-          <div>
+          <div class="sec-title-row">
             <h2 class="sec-title">Rule-sets</h2>
-            <p class="sec-sub">наборы доменов и IP, на которые ссылаются правила</p>
+            <span class="sec-count">· {$storeRuleSets.length}</span>
           </div>
           <div class="sec-actions">
-            <Button variant="primary" size="sm" iconBefore={iconPlus} onclick={() => (rsAddOpen = true)}>
-              Набор
-            </Button>
+            <button type="button" class="action" onclick={() => (rsAddOpen = true)}>+ Набор</button>
           </div>
         </header>
+        <p class="sec-sub">наборы доменов и IP, на которые ссылаются правила</p>
         <RuleSetsTable
           ruleSets={$storeRuleSets}
           onEdit={(tag) => (rsEditTag = tag)}
@@ -294,9 +287,11 @@
       <SidePanel
         title="DNS-серверы"
         count={String($storeDnsServers.length)}
-        actionLabel="+ Сервер"
-        onAction={() => (dnsServerAddOpen = true)}
       >
+        {#snippet actions()}
+          <button type="button" class="action" onclick={() => (dnsRuleAddOpen = true)}>+ Правило</button>
+          <button type="button" class="action" onclick={() => (dnsServerAddOpen = true)}>+ Сервер</button>
+        {/snippet}
         <DnsServersCompact
           servers={$storeDnsServers}
           rules={$storeDnsRules}
@@ -430,10 +425,15 @@
   }
   .sec-head {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
     gap: 14px;
-    margin-bottom: 10px;
+    margin-bottom: 4px;
+  }
+  .sec-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
   }
   .sec-title {
     margin: 0;
@@ -441,15 +441,32 @@
     font-weight: 600;
     color: var(--text-primary);
   }
+  .sec-count {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
   .sec-sub {
-    margin: 4px 0 0;
+    margin: 0 0 8px;
     font-size: 12px;
     color: var(--text-muted);
   }
   .sec-actions {
     display: flex;
-    gap: 6px;
+    gap: 12px;
     align-items: center;
+  }
+  .sec-actions .action {
+    background: transparent;
+    border: 0;
+    color: var(--accent);
+    font-size: 11.5px;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+  }
+  .sec-actions .action:hover {
+    text-decoration: underline;
   }
   .main-grid {
     display: grid;

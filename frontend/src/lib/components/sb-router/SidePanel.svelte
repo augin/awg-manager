@@ -7,22 +7,30 @@
 
   interface Props {
     title: string;
-    count: string;
-    actionLabel: string;
-    onAction: () => void;
+    count?: string;
+    actionLabel?: string;
+    onAction?: () => void;
+    /** Если задан — заменяет одиночную кнопку (для множественных actions). */
+    actions?: Snippet;
     children: Snippet;
   }
 
-  let { title, count, actionLabel, onAction, children }: Props = $props();
+  let { title, count, actionLabel, onAction, actions, children }: Props = $props();
 </script>
 
 <div class="panel">
   <header class="head">
     <div class="left">
       <span class="title">{title}</span>
-      <span class="count">· {count}</span>
+      {#if count}<span class="count">· {count}</span>{/if}
     </div>
-    <button type="button" class="action" onclick={onAction}>{actionLabel}</button>
+    <div class="actions">
+      {#if actions}
+        {@render actions()}
+      {:else if actionLabel && onAction}
+        <button type="button" class="action" onclick={onAction}>{actionLabel}</button>
+      {/if}
+    </div>
   </header>
   <div class="body">
     {@render children()}
@@ -59,7 +67,12 @@
     color: var(--text-muted);
     font-family: var(--font-mono);
   }
-  .action {
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .action, :global(.panel .head .action) {
     background: transparent;
     border: 0;
     color: var(--accent);
@@ -68,7 +81,7 @@
     font-family: inherit;
     padding: 0;
   }
-  .action:hover {
+  .action:hover, :global(.panel .head .action:hover) {
     text-decoration: underline;
   }
 </style>
