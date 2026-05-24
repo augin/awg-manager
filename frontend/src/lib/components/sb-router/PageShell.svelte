@@ -153,4 +153,37 @@
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
+
+  @media (max-width: 768px) {
+    .sb-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+    .title-block {
+      text-align: left;
+    }
+    .title {
+      font-size: 18px;
+    }
+    .status-slot {
+      align-self: flex-start;
+    }
+    .pill-button {
+      width: 100%;
+      justify-content: flex-start;
+    }
+    .mode-toggle {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .mode-toggle button {
+      padding: 6px 10px;
+      font-size: 11px;
+    }
+    .sb-body {
+      padding: 0 12px;
+    }
+  }
 </style>
