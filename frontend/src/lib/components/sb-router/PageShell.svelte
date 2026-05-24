@@ -4,10 +4,13 @@
 </script>
 
 <script lang="ts">
+  import { Settings as SettingsIcon } from 'lucide-svelte';
   import { mode, setMode, type RouterMode } from './modeStore';
   import { openDrawer } from './drawerStore';
+  import { openSettingsDrawer } from './settingsDrawerStore';
   import { Badge } from '$lib/components/ui';
   import StatusDrawer from './StatusDrawer.svelte';
+  import SettingsDrawer from './SettingsDrawer.svelte';
 
   interface Props {
     /** Текущий статус движка sing-box. Влияет только на цвет pill. */
@@ -55,6 +58,16 @@
       </button>
     </div>
 
+    <button
+      type="button"
+      class="icon-btn"
+      onclick={openSettingsDrawer}
+      aria-label="Настройки движка"
+      title="Настройки движка"
+    >
+      <SettingsIcon size={16} />
+    </button>
+
     <div class="mode-toggle" role="tablist" aria-label="Режим интерфейса">
       <button
         type="button"
@@ -79,6 +92,7 @@
 </div>
 
 <StatusDrawer />
+<SettingsDrawer />
 
 <style>
   .sb-shell { display: flex; flex-direction: column; gap: var(--sp-4); }
@@ -107,6 +121,23 @@
   }
 
   .status-slot { flex-shrink: 0; }
+
+  .icon-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .icon-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+  }
 
   .mode-toggle {
     display: inline-flex;
