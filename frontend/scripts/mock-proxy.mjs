@@ -1420,7 +1420,7 @@ let mockSBSettings = {
 	enabled: false,
 	policyName: '',
 	deviceMode: 'policy',
-	snifferEnabled: true,
+	snifferEnabled: false,
 	refreshMode: 'interval',
 	refreshIntervalHours: 24,
 	wanAutoDetect: true,
@@ -3252,14 +3252,14 @@ const server = http.createServer(async (req, res) => {
 	}
 
 	if (req.method === 'GET' && path === '/singbox/router/policies') {
-		const policies = mockSBPolicyExists ? [{ name: 'SBRouter', description: 'wizard' }] : [];
+		const policies = mockSBPolicyExists ? [{ name: 'awgm-router', description: 'wizard' }] : [];
 		send(res, 200, { success: true, data: policies });
 		return;
 	}
 
 	if (req.method === 'POST' && path === '/singbox/router/policies') {
 		mockSBPolicyExists = true;
-		send(res, 200, { success: true, data: { name: 'SBRouter', description: 'wizard' } });
+		send(res, 200, { success: true, data: { name: 'awgm-router', description: 'wizard' } });
 		return;
 	}
 
@@ -3444,20 +3444,23 @@ const server = http.createServer(async (req, res) => {
 				version: '1.13.11',
 				configValid: true,
 				netfilterAvailable: true,
-				netfilterComponentName: 'nftables',
+				netfilterComponentName: 'ndm-mod-netfilter',
 				tproxyTargetAvailable: true,
-				policyName: mockSBPolicyExists ? 'SBRouter' : '',
-				policyMark: '0x64',
+				policyName: mockSBPolicyExists ? 'awgm-router' : '',
+				policyMark: '0x10001',
 				policyExists: mockSBPolicyExists,
 				deviceMode: mockSBSettings.deviceMode ?? 'policy',
-				snifferEnabled: mockSBSettings.snifferEnabled ?? true,
-				deviceCount: 2,
+				snifferEnabled: mockSBSettings.snifferEnabled ?? false,
+				deviceCount: 3,
 				ruleCount: mockSingboxRules.length,
 				ruleSetCount: mockSingboxRuleSets.length,
 				outboundAwgCount: 1,
-				outboundCompositeCount: 1,
-				final: 'warp',
-				issues: [],
+				outboundCompositeCount: 2,
+				final: 'direct',
+				issues: [
+					{ severity: 'warning', kind: 'orphan-rule', ruleIndex: 4, message: 'Правило #4 ссылается на удалённый outbound «old-tunnel»' },
+					{ severity: 'error', kind: 'policy-missing', message: 'NDMS policy «awgm-router» не существует в текущей конфигурации NDMS' },
+				],
 			},
 		});
 		return;
