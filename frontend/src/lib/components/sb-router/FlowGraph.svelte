@@ -218,4 +218,43 @@
     grid-column: span 2;
     text-align: right;
   }
+
+  /* ── Mobile: vertical orientation (<768px) ── */
+  @media (max-width: 768px) {
+    .flow {
+      padding: 14px 16px;
+    }
+
+    .row {
+      display: flex !important;
+      flex-direction: column !important;
+      grid-template-columns: none !important;
+      align-items: stretch;
+      gap: 6px;
+    }
+
+    /* Rotate horizontal arrows 90° to point downward */
+    .row :global(.arrow) {
+      align-self: center;
+      transform: rotate(90deg);
+      flex-shrink: 0;
+    }
+
+    /* Outbounds tile: full width, reset min-height */
+    .outbounds {
+      width: 100%;
+      min-height: unset;
+      box-sizing: border-box;
+    }
+
+    /* Outbounds grid: single column on very narrow viewports */
+    @media (max-width: 400px) {
+      .outbounds-grid {
+        grid-template-columns: 1fr;
+      }
+      .ob-more {
+        grid-column: span 1;
+      }
+    }
+  }
 </style>
