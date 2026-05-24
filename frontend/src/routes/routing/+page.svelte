@@ -23,7 +23,7 @@
     import AccessPoliciesTab from './AccessPoliciesTab.svelte';
     import ClientRoutesTab from './ClientRoutesTab.svelte';
     import { HrNeoTab } from '$lib/components/hrneo';
-    import { SingboxRoutingPage } from '$lib/components/singbox-routing';
+    import { DeviceProxySubTab } from '$lib/components/singbox-routing';
     import { PageShell, RulesPanel, FlowGraph, TracePanel, traceOpen, AddWizardPanel, addWizardOpen, EmptyState, ExpertPanel, mode as sbMode, type EngineStatus } from '$lib/components/sb-router';
     import GeoDataTab from './GeoDataTab.svelte';
     import { isRoutingSubTabVisible, type RoutingSubTab, type UsageLevel } from '$lib/types/usageLevel';
@@ -53,6 +53,16 @@
     });
 
     let activeTab = $state<'hrneo' | 'geodata' | 'dns' | 'ip' | 'policy' | 'clientvpn' | 'singbox'>('dns');
+
+    let activeSingboxSub = $state<string | null>(null);
+    $effect(() => {
+        const sp = $page.url.searchParams;
+        if (sp.get('tab') === 'singbox') {
+            activeSingboxSub = sp.get('sub');
+        } else {
+            activeSingboxSub = null;
+        }
+    });
 
     let isOS5 = $derived($systemInfo.data?.isOS5 ?? false);
     let hydrarouteInstalled = $derived($routing.hydrarouteStatus?.installed ?? false);
@@ -331,7 +341,9 @@
         <GeoDataTab />
     {:else if activeTab === 'singbox'}
         <PageShell engineStatus={sbEngineStatus}>
-            {#if $sbMode === 'beginner'}
+            {#if activeSingboxSub === 'deviceproxy'}
+                <DeviceProxySubTab />
+            {:else if $sbMode === 'beginner'}
                 {#if $addWizardOpen}
                     <AddWizardPanel />
                 {:else if $traceOpen}
