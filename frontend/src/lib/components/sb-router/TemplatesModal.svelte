@@ -11,7 +11,7 @@
   import { Search, X as XIcon } from 'lucide-svelte';
   import {
     templatesOpen, templatesSelection, templatesFilter, templatesQuery, templatesOutbound,
-    closeTemplatesModal, toggleTemplate, clearSelection, setFilter, setQuery, setOutbound,
+    closeTemplatesModal, dismissTemplatesModal, toggleTemplate, clearSelection, setFilter, setQuery, setOutbound,
   } from './templatesStore';
   import {
     buildTemplateList, filterByCategory, countByCategory,
@@ -22,6 +22,12 @@
   import TemplateServiceTile from './TemplateServiceTile.svelte';
   import TemplateRsRow from './TemplateRsRow.svelte';
   import TemplatesFooter from './TemplatesFooter.svelte';
+
+  interface Props {
+    mode?: 'submit' | 'collect';
+    onDone?: () => void;
+  }
+  let { mode = 'submit', onDone }: Props = $props();
 
   const presets = singboxRouterStore.presets;
   const ruleSets = singboxRouterStore.ruleSets;
@@ -79,6 +85,11 @@
     }
   }
 
+  function handleDone() {
+    onDone?.();
+    dismissTemplatesModal();
+  }
+
   function handleSelectAll(category: 'services' | 'rulesets') {
     const group = allGroups.find((g) => g.category === category);
     if (!group) return;
@@ -94,7 +105,11 @@
     if (!$templatesOpen) return;
     if (e.key === 'Escape') {
       e.preventDefault();
-      closeTemplatesModal();
+      if (mode === 'collect') {
+        handleDone();
+      } else {
+        closeTemplatesModal();
+      }
     }
   }
 
@@ -121,7 +136,11 @@
   <div
     class="overlay"
     role="presentation"
-    onclick={(e) => { if (e.target === e.currentTarget) closeTemplatesModal(); }}
+    onclick={(e) => {
+      if (e.target !== e.currentTarget) return;
+      if (mode === 'collect') handleDone();
+      else closeTemplatesModal();
+    }}
   >
     <div class="box" role="dialog" aria-modal="true" aria-label="Готовые шаблоны">
       <header class="head">
@@ -213,16 +232,26 @@
         {/each}
       </div>
 
-      <TemplatesFooter
-        selectedIds={Array.from($templatesSelection)}
-        outbounds={$outbounds}
-        pickedOutbound={$templatesOutbound}
-        onPickOutbound={(v) => setOutbound(v)}
-        onClear={clearSelection}
-        onCancel={closeTemplatesModal}
-        onSubmit={handleSubmit}
-        {submitting}
-      />
+      {#if mode === 'submit'}
+        <TemplatesFooter
+          selectedIds={Array.from($templatesSelection)}
+          outbounds={$outbounds}
+          pickedOutbound={$templatesOutbound}
+          onPickOutbound={(v) => setOutbound(v)}
+          onClear={clearSelection}
+          onCancel={closeTemplatesModal}
+          onSubmit={handleSubmit}
+          {submitting}
+        />
+      {:else}
+        {@const count = $templatesSelection.size}
+        <div class="footer-collect">
+          <span class="hint">Выбрано: {count}</span>
+          <button type="button" class="btn-primary" disabled={count === 0} onclick={handleDone}>
+            Готово ({count})
+          </button>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
@@ -344,5 +373,33 @@
     font-size: 11px;
     color: var(--color-error, #ff5555);
     margin: 4px 0 0 28px;
+  }
+  .footer-collect {
+    padding: var(--sp-3) var(--sp-5);
+    border-top: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+  }
+  .footer-collect .hint {
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+  .footer-collect .btn-primary {
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    color: #fff;
+    border: 0;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .footer-collect .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>

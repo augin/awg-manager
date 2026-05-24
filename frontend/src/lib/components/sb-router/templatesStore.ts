@@ -49,3 +49,10 @@ export function setQuery(q: string): void {
 export function setOutbound(tag: string | null): void {
   outboundW.set(tag);
 }
+
+export function dismissTemplatesModal(): void {
+  openW.set(false);
+  // Намеренно НЕ очищаем selection/filter/query/outbound —
+  // вызывающий код (например, AddRuleWizard) владеет selection'ом
+  // и переиспользует его после закрытия.
+}
