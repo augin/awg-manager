@@ -52,6 +52,7 @@
     font-size: 12px;
     color: var(--text-primary);
     font-family: var(--font-sans);
+    white-space: nowrap;
   }
   .value.is-small { font-size: 11px; }
   .value.is-mono { font-family: var(--font-mono); }
