@@ -223,6 +223,9 @@
   function navigateDeviceProxy() {
     void goto('/routing?tab=singbox&sub=deviceproxy');
   }
+  function navigateConnections() {
+    void goto('/routing?tab=singbox&sub=connections');
+  }
 </script>
 
 {#snippet iconFilter()}<Filter size={12} />{/snippet}
@@ -308,6 +311,20 @@
       </div>
     </header>
     <DeviceProxyCompact onConfigure={navigateDeviceProxy} />
+  </section>
+
+  <section class="section">
+    <header class="sec-head">
+      <div>
+        <h2 class="sec-title">Живые соединения</h2>
+        <p class="sec-sub">текущие сессии sing-box — мониторинг и фильтр</p>
+      </div>
+      <div class="sec-actions">
+        <Button variant="secondary" size="sm" onclick={navigateConnections}>
+          Открыть
+        </Button>
+      </div>
+    </header>
   </section>
 </div>
 

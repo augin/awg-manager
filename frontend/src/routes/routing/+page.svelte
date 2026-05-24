@@ -24,6 +24,7 @@
     import ClientRoutesTab from './ClientRoutesTab.svelte';
     import { HrNeoTab } from '$lib/components/hrneo';
     import { DeviceProxySubTab } from '$lib/components/singbox-routing';
+    import { ConnectionsSubTab } from '$lib/components/routing/singboxRouter';
     import { PageShell, RulesPanel, FlowGraph, TracePanel, traceOpen, AddWizardPanel, addWizardOpen, EmptyState, ExpertPanel, mode as sbMode, type EngineStatus } from '$lib/components/sb-router';
     import GeoDataTab from './GeoDataTab.svelte';
     import { isRoutingSubTabVisible, type RoutingSubTab, type UsageLevel } from '$lib/types/usageLevel';
@@ -343,6 +344,8 @@
         <PageShell engineStatus={sbEngineStatus}>
             {#if activeSingboxSub === 'deviceproxy'}
                 <DeviceProxySubTab />
+            {:else if activeSingboxSub === 'connections'}
+                <ConnectionsSubTab />
             {:else if $sbMode === 'beginner'}
                 {#if $addWizardOpen}
                     <AddWizardPanel />
