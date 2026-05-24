@@ -24,7 +24,7 @@
     import ClientRoutesTab from './ClientRoutesTab.svelte';
     import { HrNeoTab } from '$lib/components/hrneo';
     import { SingboxRoutingPage } from '$lib/components/singbox-routing';
-    import { PageShell, RulesPanel, FlowGraph, TracePanel, traceOpen, mode as sbMode, type EngineStatus } from '$lib/components/sb-router';
+    import { PageShell, RulesPanel, FlowGraph, TracePanel, traceOpen, AddWizardPanel, addWizardOpen, mode as sbMode, type EngineStatus } from '$lib/components/sb-router';
     import GeoDataTab from './GeoDataTab.svelte';
     import { isRoutingSubTabVisible, type RoutingSubTab, type UsageLevel } from '$lib/types/usageLevel';
     import { usageLevel } from '$lib/stores/settings';
@@ -330,7 +330,9 @@
     {:else if activeTab === 'singbox'}
         <PageShell engineStatus={sbEngineStatus}>
             {#if $sbMode === 'beginner'}
-                {#if $traceOpen}
+                {#if $addWizardOpen}
+                    <AddWizardPanel />
+                {:else if $traceOpen}
                     <TracePanel />
                 {:else}
                     <FlowGraph />

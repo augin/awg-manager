@@ -68,3 +68,34 @@ export {
   type TemplateItem, type TemplateGroup,
 } from './templatesData';
 export { submitTemplates, type SubmitResult } from './templatesActions';
+
+// F5b — Add Rule Wizard
+export { default as AddWizardPanel } from './AddWizardPanel.svelte';
+export { default as StepPill } from './StepPill.svelte';
+export { default as WizardStep } from './WizardStep.svelte';
+export { default as OutboundOption } from './OutboundOption.svelte';
+export { default as SelectedTemplatesRow } from './SelectedTemplatesRow.svelte';
+export { default as CustomMatcherForm } from './CustomMatcherForm.svelte';
+export {
+  addWizardOpen,
+  wizardOutboundCategory,
+  wizardTunnelTag,
+  wizardCustom,
+  openAddWizard,
+  closeAddWizard,
+  setOutboundCategory,
+  setTunnelTag,
+  updateCustomField,
+  toggleCustomRuleSet,
+  resetWizardState,
+  type OutboundCategory,
+  type CustomMatcherFields,
+} from './addWizardStore';
+export {
+  composeCustomRule,
+  resolveOutbound,
+  submitWizard,
+  ValidationError,
+  type SubmitWizardArgs,
+} from './addWizardActions';
+export { dismissTemplatesModal } from './templatesStore';

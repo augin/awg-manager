@@ -13,6 +13,7 @@
   import { SectionLabel, Button } from '$lib/components/ui';
   import { openTrace } from './traceStore';
   import { openTemplatesModal } from './templatesStore';
+  import { openAddWizard } from './addWizardStore';
   import TemplatesModal from './TemplatesModal.svelte';
   import RuleCard from './RuleCard.svelte';
   import { singboxRuleToCard } from './adapters';
@@ -66,6 +67,9 @@
       </div>
       <Button variant="primary" size="sm" onclick={() => openTemplatesModal()}>
         + Из шаблона
+      </Button>
+      <Button variant="secondary" size="sm" onclick={() => openAddWizard()}>
+        + Правило
       </Button>
       <Button variant="secondary" size="sm" onclick={(_e) => openTrace()}>
         Куда поедет?
