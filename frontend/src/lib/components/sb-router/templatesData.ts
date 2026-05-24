@@ -95,7 +95,7 @@ export function filterByCategory(
 export function countByCategory(groups: TemplateGroup[]): Record<FilterKey, number> {
   const counts: Record<FilterKey, number> = { all: 0, services: 0, rulesets: 0 };
   for (const g of groups) {
-    counts[g.category] = g.items.length;
+    counts[g.category] += g.items.length;
     counts.all += g.items.length;
   }
   return counts;
