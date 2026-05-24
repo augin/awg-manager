@@ -132,3 +132,17 @@ export { default as ExpertPanel } from './ExpertPanel.svelte';
 
 // F7 — Mobile
 export { default as MobileBottomBar } from './MobileBottomBar.svelte';
+
+// Settings Drawer
+export { default as SettingsDrawer } from './SettingsDrawer.svelte';
+export {
+  settingsDrawerOpen,
+  openSettingsDrawer,
+  closeSettingsDrawer,
+  toggleSettingsDrawer,
+} from './settingsDrawerStore';
+export {
+  mergeAndSaveSettings,
+  BYPASS_PRESETS,
+  type BypassPresetMeta,
+} from './settingsActions';
