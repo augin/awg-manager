@@ -88,9 +88,11 @@
       <Badge variant="success" size="sm" mono>active: {runtime.activeTag}</Badge>
     </div>
   {/if}
-  <Button variant="ghost" size="sm" onclick={onConfigure} iconBefore={icon}>
-    Настроить
-  </Button>
+  {#if !bare}
+    <Button variant="ghost" size="sm" onclick={onConfigure} iconBefore={icon}>
+      Настроить
+    </Button>
+  {/if}
 </div>
 
 <style>
