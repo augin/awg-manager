@@ -402,4 +402,33 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+
+  @media (max-width: 768px) {
+    .overlay {
+      padding: 0 !important;
+    }
+    .box {
+      width: 100% !important;
+      max-width: none !important;
+      max-height: 100% !important;
+      height: 100%;
+      border-radius: 0 !important;
+      border: 0 !important;
+    }
+    .search-row {
+      padding: var(--sp-3);
+    }
+    .chips {
+      gap: 4px;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      padding-bottom: 4px;
+    }
+    .body {
+      padding: 4px var(--sp-3) var(--sp-3);
+    }
+    .footer-collect, .footer {
+      padding: 10px var(--sp-3);
+    }
+  }
 </style>
