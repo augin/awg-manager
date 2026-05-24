@@ -16,9 +16,10 @@
 
   interface Props {
     onConfigure: () => void;
+    bare?: boolean;
   }
 
-  let { onConfigure }: Props = $props();
+  let { onConfigure, bare = false }: Props = $props();
 
   let config = $state<DeviceProxyConfig | null>(null);
   let runtime = $state<DeviceProxyRuntime | null>(null);
@@ -62,7 +63,7 @@
 
 {#snippet icon()}<ChevronRight size={12} />{/snippet}
 
-<div class="panel">
+<div class="panel" class:bare>
   <span class="dot" data-tone={dotTone}></span>
   <div class="info">
     {#if config}
@@ -151,5 +152,12 @@
     .sub {
       gap: 4px;
     }
+  }
+  /* Bare mode для embed внутри SidePanel — без double chrome */
+  .panel.bare {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 12px 14px;
   }
 </style>
