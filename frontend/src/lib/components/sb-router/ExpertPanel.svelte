@@ -447,5 +447,16 @@
     .side-grid {
       grid-template-columns: 1fr;
     }
+    .wrap {
+      padding: var(--sp-2);
+    }
+    .sec-head {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .sec-actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
   }
 </style>

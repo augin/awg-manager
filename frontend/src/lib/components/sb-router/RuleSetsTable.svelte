@@ -192,4 +192,12 @@
     text-align: center;
     font-size: 12px;
   }
+  @media (max-width: 768px) {
+    .table {
+      overflow-x: auto;
+    }
+    .header, .row {
+      min-width: 600px;
+    }
+  }
 </style>

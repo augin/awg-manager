@@ -236,6 +236,9 @@
     font-size: 12px;
   }
   @media (max-width: 768px) {
+    .table {
+      overflow-x: auto;
+    }
     .header, .row {
       grid-template-columns: 30px 50px 80px 1fr 60px;
     }
