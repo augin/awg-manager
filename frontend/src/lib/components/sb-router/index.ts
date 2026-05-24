@@ -119,5 +119,13 @@ export {
   enableEngine,
 } from './emptyStateActions';
 
-// F6 — RuleSetsTable
+// F6 — Expert view components
 export { default as RuleSetsTable } from './RuleSetsTable.svelte';
+export { default as RoutingTable } from './RoutingTable.svelte';
+export { default as OutboundsCompact } from './OutboundsCompact.svelte';
+export { default as DnsServersCompact } from './DnsServersCompact.svelte';
+export { default as DeviceProxyCompact } from './DeviceProxyCompact.svelte';
+export { default as SidePanel } from './SidePanel.svelte';
+export { default as StatStrip } from './StatStrip.svelte';
+export type { StatCellData } from './StatStrip.svelte';
+export { default as ExpertPanel } from './ExpertPanel.svelte';
