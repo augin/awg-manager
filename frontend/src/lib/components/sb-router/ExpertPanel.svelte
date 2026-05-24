@@ -234,98 +234,98 @@
 <div class="wrap">
   <StatStrip cells={statCells} />
 
-  <section class="section">
-    <header class="sec-head">
-      <div>
-        <h2 class="sec-title">Правила маршрутизации</h2>
-        <p class="sec-sub">first-match-wins · final → direct</p>
-      </div>
-      <div class="sec-actions">
-        <Button variant="ghost" size="sm" iconBefore={iconFilter} onclick={() => {}}>Фильтр</Button>
-        <Button variant="primary" size="sm" iconBefore={iconPlus} onclick={() => openAddWizard()}>
-          Правило
-        </Button>
-      </div>
-    </header>
-    <RoutingTable
-      rules={$storeRules}
-      outbounds={$storeOutbounds}
-      onEdit={(idx) => (ruleEditIdx = idx)}
-      onDelete={handleDeleteRule}
-      onMove={handleMoveRule}
-    />
-  </section>
+  <div class="main-grid">
+    <div class="col-main">
+      <section class="section">
+        <header class="sec-head">
+          <div>
+            <h2 class="sec-title">Правила маршрутизации</h2>
+            <p class="sec-sub">first-match-wins · final → direct</p>
+          </div>
+          <div class="sec-actions">
+            <Button variant="ghost" size="sm" iconBefore={iconFilter} onclick={() => {}}>Фильтр</Button>
+            <Button variant="primary" size="sm" iconBefore={iconPlus} onclick={() => openAddWizard()}>
+              Правило
+            </Button>
+          </div>
+        </header>
+        <RoutingTable
+          rules={$storeRules}
+          outbounds={$storeOutbounds}
+          onEdit={(idx) => (ruleEditIdx = idx)}
+          onDelete={handleDeleteRule}
+          onMove={handleMoveRule}
+        />
+      </section>
 
-  <section class="section">
-    <header class="sec-head">
-      <div>
-        <h2 class="sec-title">Rule-sets</h2>
-        <p class="sec-sub">наборы доменов и IP, на которые ссылаются правила</p>
-      </div>
-      <div class="sec-actions">
-        <Button variant="primary" size="sm" iconBefore={iconPlus} onclick={() => (rsAddOpen = true)}>
-          Набор
-        </Button>
-      </div>
-    </header>
-    <RuleSetsTable
-      ruleSets={$storeRuleSets}
-      onEdit={(tag) => (rsEditTag = tag)}
-      onDelete={handleDeleteRs}
-    />
-  </section>
+      <section class="section">
+        <header class="sec-head">
+          <div>
+            <h2 class="sec-title">Rule-sets</h2>
+            <p class="sec-sub">наборы доменов и IP, на которые ссылаются правила</p>
+          </div>
+          <div class="sec-actions">
+            <Button variant="primary" size="sm" iconBefore={iconPlus} onclick={() => (rsAddOpen = true)}>
+              Набор
+            </Button>
+          </div>
+        </header>
+        <RuleSetsTable
+          ruleSets={$storeRuleSets}
+          onEdit={(tag) => (rsEditTag = tag)}
+          onDelete={handleDeleteRs}
+        />
+      </section>
+    </div>
 
-  <div class="side-grid">
-    <SidePanel
-      title="Outbounds"
-      count={String($storeOutbounds.length)}
-      actionLabel="+ Composite"
-      onAction={() => (outboundAddOpen = true)}
-    >
-      <OutboundsCompact
-        outbounds={$storeOutbounds}
-        onEdit={(tag) => (outboundEditTag = tag)}
-      />
-    </SidePanel>
+    <div class="col-sidebar">
+      <SidePanel
+        title="Outbounds"
+        count={String($storeOutbounds.length)}
+        actionLabel="+ Composite"
+        onAction={() => (outboundAddOpen = true)}
+      >
+        <OutboundsCompact
+          outbounds={$storeOutbounds}
+          onEdit={(tag) => (outboundEditTag = tag)}
+        />
+      </SidePanel>
 
-    <SidePanel
-      title="DNS-серверы"
-      count={String($storeDnsServers.length)}
-      actionLabel="+ Сервер"
-      onAction={() => (dnsServerAddOpen = true)}
-    >
-      <DnsServersCompact
-        servers={$storeDnsServers}
-        rules={$storeDnsRules}
-        onEditServer={(tag) => (dnsServerEditTag = tag)}
-        onEditRule={(idx) => (dnsRuleEditIdx = idx)}
-      />
-    </SidePanel>
+      <SidePanel
+        title="DNS-серверы"
+        count={String($storeDnsServers.length)}
+        actionLabel="+ Сервер"
+        onAction={() => (dnsServerAddOpen = true)}
+      >
+        <DnsServersCompact
+          servers={$storeDnsServers}
+          rules={$storeDnsRules}
+          onEditServer={(tag) => (dnsServerEditTag = tag)}
+          onEditRule={(idx) => (dnsRuleEditIdx = idx)}
+        />
+      </SidePanel>
+
+      <SidePanel
+        title="Прокси устройств"
+        count=""
+        actionLabel="Настроить →"
+        onAction={navigateDeviceProxy}
+      >
+        <DeviceProxyCompact bare onConfigure={navigateDeviceProxy} />
+      </SidePanel>
+
+      <SidePanel
+        title="Живые соединения"
+        count=""
+        actionLabel="Открыть →"
+        onAction={navigateConnections}
+      >
+        <div class="connections-blurb">
+          Текущие сессии sing-box. Мониторинг и фильтры доступны на отдельной странице.
+        </div>
+      </SidePanel>
+    </div>
   </div>
-
-  <section class="section">
-    <header class="sec-head">
-      <div>
-        <h2 class="sec-title">Прокси для устройств</h2>
-        <p class="sec-sub">SOCKS5 / HTTP listeners, по-устройству</p>
-      </div>
-    </header>
-    <DeviceProxyCompact onConfigure={navigateDeviceProxy} />
-  </section>
-
-  <section class="section">
-    <header class="sec-head">
-      <div>
-        <h2 class="sec-title">Живые соединения</h2>
-        <p class="sec-sub">текущие сессии sing-box — мониторинг и фильтр</p>
-      </div>
-      <div class="sec-actions">
-        <Button variant="secondary" size="sm" onclick={navigateConnections}>
-          Открыть
-        </Button>
-      </div>
-    </header>
-  </section>
 </div>
 
 <!-- RuleEditModal: add-mode (ruleEditIdx stays null until modal closes) -->
@@ -424,12 +424,9 @@
 
 <style>
   .wrap {
-    max-width: 1100px;
+    max-width: none;
     margin: 0 auto;
     padding: var(--sp-4);
-  }
-  .section {
-    margin-bottom: 24px;
   }
   .sec-head {
     display: flex;
@@ -454,16 +451,35 @@
     gap: 6px;
     align-items: center;
   }
-  .side-grid {
+  .main-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
     gap: 14px;
-    margin-bottom: 24px;
   }
-  @media (max-width: 768px) {
-    .side-grid {
+  .col-main {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+  .col-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+  .connections-blurb {
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+  @media (max-width: 1023px) {
+    .main-grid {
       grid-template-columns: 1fr;
     }
+  }
+  @media (max-width: 768px) {
     .wrap {
       padding: var(--sp-2);
     }
