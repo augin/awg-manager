@@ -12,9 +12,10 @@
     rules: SingboxRouterDNSRule[];
     onEditServer: (tag: string) => void;
     onEditRule: (idx: number) => void;
+    onAddRule?: () => void;
   }
 
-  let { servers, rules, onEditServer, onEditRule }: Props = $props();
+  let { servers, rules, onEditServer, onEditRule, onAddRule }: Props = $props();
 
   function subFor(s: SingboxRouterDNSServer): string {
     return `${s.type ?? 'dns'} · ${s.server}`;
@@ -53,8 +54,13 @@
     {/if}
   </div>
 
+  <div class="rules-cap">
+    <span class="rules-cap-label">DNS-правила · {rules.length}</span>
+    {#if onAddRule}
+      <button type="button" class="rules-add" onclick={onAddRule}>+ Правило</button>
+    {/if}
+  </div>
   {#if rules.length > 0}
-    <div class="rules-cap">DNS-правила · {rules.length}</div>
     <div class="rules">
       {#each rules as r, i (i)}
         <button type="button" class="rule-row" onclick={() => onEditRule(i)}>
@@ -64,6 +70,8 @@
         </button>
       {/each}
     </div>
+  {:else}
+    <div class="rules-empty">нет правил</div>
   {/if}
 </div>
 
@@ -114,6 +122,10 @@
     color: var(--text-muted);
   }
   .rules-cap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 8px 14px;
     background: var(--bg-tertiary);
     font-size: 11px;
@@ -121,6 +133,28 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-weight: 600;
+  }
+  .rules-add {
+    background: transparent;
+    border: 0;
+    color: var(--accent);
+    font-size: 11.5px;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 500;
+  }
+  .rules-add:hover {
+    text-decoration: underline;
+  }
+  .rules-empty {
+    padding: 12px 14px;
+    color: var(--text-muted);
+    text-align: center;
+    font-size: 11.5px;
+    font-style: italic;
   }
   .rule-row {
     font-family: var(--font-mono);

@@ -281,16 +281,15 @@
       <SidePanel
         title="DNS-серверы"
         count={String($storeDnsServers.length)}
+        actionLabel="+ Сервер"
+        onAction={() => (dnsServerAddOpen = true)}
       >
-        {#snippet actions()}
-          <button type="button" class="action" onclick={() => (dnsRuleAddOpen = true)}>+ Правило</button>
-          <button type="button" class="action" onclick={() => (dnsServerAddOpen = true)}>+ Сервер</button>
-        {/snippet}
         <DnsServersCompact
           servers={$storeDnsServers}
           rules={$storeDnsRules}
           onEditServer={(tag) => (dnsServerEditTag = tag)}
           onEditRule={(idx) => (dnsRuleEditIdx = idx)}
+          onAddRule={() => (dnsRuleAddOpen = true)}
         />
       </SidePanel>
 
