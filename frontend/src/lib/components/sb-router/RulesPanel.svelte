@@ -10,7 +10,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { singboxRouter as singboxRouterStore } from '$lib/stores/singboxRouter';
-  import { SectionLabel } from '$lib/components/ui';
+  import { SectionLabel, Button } from '$lib/components/ui';
+  import { openTrace } from './traceStore';
   import RuleCard from './RuleCard.svelte';
   import { singboxRuleToCard } from './adapters';
   import type { RuleCardData } from './types';
@@ -57,8 +58,13 @@
       <h2 class="title">Что и куда отправлять</h2>
       <p class="sub">Правила применяются сверху вниз. Срабатывает первое подходящее.</p>
     </div>
-    <div class="counter">
-      {count} {pluralRules(count)}
+    <div class="header-right">
+      <div class="counter">
+        {count} {pluralRules(count)}
+      </div>
+      <Button variant="secondary" size="sm" onclick={(_e) => openTrace()}>
+        Куда поедет?
+      </Button>
     </div>
   </header>
 
@@ -111,6 +117,13 @@
     font-size: var(--fs-sm);
     color: var(--text-muted);
     line-height: var(--lh-body);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-shrink: 0;
   }
 
   .counter {
