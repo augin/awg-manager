@@ -176,6 +176,7 @@
                       <TemplateServiceTile
                         templateId={item.id}
                         presetId={item.presetId}
+                        iconSlug={item.iconSlug}
                         name={item.name}
                         sub={item.category_hint}
                         selected={$templatesSelection.has(item.id)}

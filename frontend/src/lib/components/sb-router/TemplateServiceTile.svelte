@@ -10,13 +10,14 @@
   interface Props {
     templateId: string;
     presetId: string;
+    iconSlug?: string;
     name: string;
     sub?: string;
     selected: boolean;
     onclick: () => void;
   }
 
-  let { presetId, name, sub, selected, onclick }: Props = $props();
+  let { presetId, iconSlug, name, sub, selected, onclick }: Props = $props();
 </script>
 
 <button type="button" class="tile" class:selected aria-pressed={selected} {onclick}>
@@ -26,7 +27,7 @@
     {/if}
   </div>
   <div class="icon">
-    <PresetIcon slug={presetId} label={name} size={26} />
+    <PresetIcon slug={iconSlug ?? presetId} label={name} size={26} />
   </div>
   <div class="text">
     <div class="name">{name}</div>
