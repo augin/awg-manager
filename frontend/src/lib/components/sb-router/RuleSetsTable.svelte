@@ -13,9 +13,10 @@
     ruleSets: SingboxRouterRuleSet[];
     onEdit: (tag: string) => void;
     onDelete: (tag: string) => void;
+    bare?: boolean;
   }
 
-  let { ruleSets, onEdit, onDelete }: Props = $props();
+  let { ruleSets, onEdit, onDelete, bare = false }: Props = $props();
 
   let filter = $state<RsFilter>('all');
 
@@ -54,7 +55,7 @@
     </div>
   </div>
 
-  <div class="table">
+  <div class="table" class:bare>
     <div class="header">
       <div>Tag</div>
       <div>Тип</div>
@@ -199,5 +200,11 @@
     .header, .row {
       min-width: 600px;
     }
+  }
+  /* Bare mode для embed внутри SidePanel — parent даёт chrome */
+  .table.bare {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
   }
 </style>

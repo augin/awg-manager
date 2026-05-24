@@ -232,43 +232,37 @@
 
   <div class="main-grid">
     <div class="col-main">
-      <section class="section">
-        <header class="sec-head">
-          <div class="sec-title-row">
-            <h2 class="sec-title">Правила маршрутизации</h2>
-            <span class="sec-count">· {$storeRules.length}</span>
-          </div>
-          <div class="sec-actions">
-            <button type="button" class="action" onclick={() => openAddWizard()}>+ Правило</button>
-          </div>
-        </header>
-        <p class="sec-sub">first-match-wins · final → direct</p>
+      <SidePanel
+        title="Правила маршрутизации"
+        count={String($storeRules.length)}
+        actionLabel="+ Правило"
+        onAction={() => openAddWizard()}
+      >
+        <div class="panel-cap">first-match-wins · final → direct</div>
         <RoutingTable
+          bare
           rules={$storeRules}
           outbounds={$storeOutbounds}
           onEdit={(idx) => (ruleEditIdx = idx)}
           onDelete={handleDeleteRule}
           onMove={handleMoveRule}
         />
-      </section>
+      </SidePanel>
 
-      <section class="section">
-        <header class="sec-head">
-          <div class="sec-title-row">
-            <h2 class="sec-title">Rule-sets</h2>
-            <span class="sec-count">· {$storeRuleSets.length}</span>
-          </div>
-          <div class="sec-actions">
-            <button type="button" class="action" onclick={() => (rsAddOpen = true)}>+ Набор</button>
-          </div>
-        </header>
-        <p class="sec-sub">наборы доменов и IP, на которые ссылаются правила</p>
+      <SidePanel
+        title="Rule-sets"
+        count={String($storeRuleSets.length)}
+        actionLabel="+ Набор"
+        onAction={() => (rsAddOpen = true)}
+      >
+        <div class="panel-cap">наборы доменов и IP, на которые ссылаются правила</div>
         <RuleSetsTable
+          bare
           ruleSets={$storeRuleSets}
           onEdit={(tag) => (rsEditTag = tag)}
           onDelete={handleDeleteRs}
         />
-      </section>
+      </SidePanel>
     </div>
 
     <div class="col-sidebar">
@@ -423,50 +417,15 @@
     margin: 0 auto;
     padding: var(--sp-4);
   }
-  .sec-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    margin-bottom: 4px;
-  }
-  .sec-title-row {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-  .sec-title {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-  .sec-count {
+  /* Caption внутри SidePanel body — sub-title строкой над контентом */
+  .panel-cap {
+    padding: 8px 14px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
     font-size: 11px;
     color: var(--text-muted);
-    font-family: var(--font-mono);
-  }
-  .sec-sub {
-    margin: 0 0 8px;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-  .sec-actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-  }
-  .sec-actions .action {
-    background: transparent;
-    border: 0;
-    color: var(--accent);
-    font-size: 11.5px;
-    cursor: pointer;
-    font-family: inherit;
-    padding: 0;
-  }
-  .sec-actions .action:hover {
-    text-decoration: underline;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
   .main-grid {
     display: grid;
@@ -499,14 +458,6 @@
   @media (max-width: 768px) {
     .wrap {
       padding: var(--sp-2);
-    }
-    .sec-head {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    .sec-actions {
-      width: 100%;
-      justify-content: flex-end;
     }
   }
 </style>

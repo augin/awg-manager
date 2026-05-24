@@ -15,9 +15,10 @@
     onEdit: (idx: number) => void;
     onDelete: (idx: number) => void;
     onMove: (idx: number, dir: 'up' | 'down') => void;
+    bare?: boolean;
   }
 
-  let { rules, onEdit, onDelete, onMove }: Props = $props();
+  let { rules, onEdit, onDelete, onMove, bare = false }: Props = $props();
 
   type ActionLabel = 'SNIFF' | 'HIJACK' | 'BYPASS' | 'REJECT' | 'ROUTE';
   type ActionVariant = 'default' | 'accent' | 'success' | 'error' | 'warning' | 'info' | 'muted';
@@ -91,7 +92,7 @@
   );
 </script>
 
-<div class="table">
+<div class="table" class:bare>
   <div class="header">
     <div>#</div>
     <div>Порядок</div>
@@ -245,5 +246,11 @@
     .header > div:nth-child(5), .row > div:nth-child(5) {
       display: none;
     }
+  }
+  /* Bare mode для embed внутри SidePanel — parent даёт chrome */
+  .table.bare {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
   }
 </style>
