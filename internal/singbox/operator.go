@@ -78,6 +78,24 @@ var defaultDir = filepath.Dir(installer.DefaultBinaryPath)
 // override defaultDir to redirect this too.
 var defaultCacheDBPath = filepath.Join(defaultDir, "cache.db")
 
+var singboxAllowedLogLevels = map[string]struct{}{
+	"trace": {},
+	"debug": {},
+	"info":  {},
+	"warn":  {},
+	"error": {},
+	"fatal": {},
+	"panic": {},
+}
+
+func normalizeSingboxLogLevel(v string) string {
+	normalized := strings.ToLower(strings.TrimSpace(v))
+	if _, ok := singboxAllowedLogLevels[normalized]; ok {
+		return normalized
+	}
+	return "trace"
+}
+
 // Operator is the high-level facade for sing-box integration.
 type Operator struct {
 	log        *slog.Logger
@@ -188,6 +206,9 @@ type OperatorDeps struct {
 	// the operator behaves as if always enabled (back-compat for tests
 	// that pre-date this field).
 	IsNDMSProxyEnabled func() bool
+	// SingboxLogLevel returns desired sing-box log.level from settings.
+	// Optional; defaults to "trace".
+	SingboxLogLevel func() string
 }
 
 func NewOperator(d OperatorDeps) *Operator {
@@ -207,13 +228,17 @@ func NewOperator(d OperatorDeps) *Operator {
 	if err := MigrateLegacyConfigDir(dir); err != nil {
 		log.Warn("singbox config.d migration", "err", err)
 	}
+	desiredSingboxLogLevel := normalizeSingboxLogLevel("trace")
+	if d.SingboxLogLevel != nil {
+		desiredSingboxLogLevel = normalizeSingboxLogLevel(d.SingboxLogLevel())
+	}
 
 	configPath := filepath.Join(dir, "config.d")
 	pidPath := filepath.Join(dir, "sing-box.pid")
 
-	ensureBaseConfig(configPath, log)
+	ensureBaseConfigWithLogLevel(configPath, desiredSingboxLogLevel, log)
 	ensureLegacyConfigMigrated(dir)
-	patchTunnelsSlotStripBaseDNS(filepath.Join(configPath, "10-tunnels.json"))
+	patchTunnelsSlotStripBaseOwnedBlocks(filepath.Join(configPath, "10-tunnels.json"))
 	stripStrayDirectPlaceholder(configPath)
 	removeFinalFromBase(filepath.Join(configPath, "00-base.json"), log)
 
@@ -266,31 +291,34 @@ func stderrLineIndicatesSingBoxFatal(line string) bool {
 // surfaced at /diagnostics?tab=logs). FATAL/ERROR lines are also stored
 // as lastError so the UI shows them when sing-box subsequently dies.
 func (o *Operator) handleStderrLine(line string) {
+	safeLine := sanitizeSingboxLogText(line)
 	upper := strings.ToUpper(line)
 	switch {
 	case stderrLineIndicatesSingBoxFatal(line):
-		o.log.Error("singbox stderr", "line", line)
-		o.setLastError(line)
+		o.log.Error("singbox stderr", "line", safeLine)
+		o.setLastError(safeLine)
 	case strings.Contains(upper, "ERROR"):
-		o.log.Warn("singbox stderr", "line", line)
+		o.log.Warn("singbox stderr", "line", safeLine)
 	default:
-		o.log.Info("singbox stderr", "line", line)
+		o.log.Info("singbox stderr", "line", safeLine)
 	}
 }
 
 // handleStdoutLine forwards each sing-box stdout line into the app log
 // under singbox/process. Level chosen by classifyProcessLine.
 func (o *Operator) handleStdoutLine(line string) {
+	level := classifyProcessLine(line)
+	safeLine := sanitizeSingboxLogText(line)
 	if o.processLogger == nil {
 		return
 	}
-	switch classifyProcessLine(line) {
+	switch level {
 	case logging.LevelError:
-		o.processLogger.Error("stdout", "", line)
+		o.processLogger.Error("stdout", "", safeLine)
 	case logging.LevelWarn:
-		o.processLogger.Warn("stdout", "", line)
+		o.processLogger.Warn("stdout", "", safeLine)
 	default:
-		o.processLogger.Info("stdout", "", line)
+		o.processLogger.Info("stdout", "", safeLine)
 	}
 }
 
@@ -320,15 +348,21 @@ func classifyProcessLine(line string) logging.Level {
 // also nudged so subscribers refetch immediately instead of waiting
 // for the next 30s poll tick.
 func (o *Operator) handleExit(err error, stderrTail string) {
-	msg := stderrTail
-	if msg == "" && err != nil {
-		msg = err.Error()
+	rawMsg := stderrTail
+	if rawMsg == "" && err != nil {
+		rawMsg = err.Error()
 	}
-	if msg == "" {
-		msg = "sing-box exited (no diagnostic output)"
+	if rawMsg == "" {
+		rawMsg = "sing-box exited (no diagnostic output)"
 	}
-	o.log.Error("singbox exited", "err", err, "stderrTail", stderrTail)
-	o.setLastError(msg)
+	safeMsg := sanitizeSingboxLogText(rawMsg)
+	safeTail := sanitizeSingboxLogText(stderrTail)
+	safeErr := ""
+	if err != nil {
+		safeErr = sanitizeSingboxLogText(err.Error())
+	}
+	o.log.Error("singbox exited", "err", safeErr, "stderrTail", safeTail)
+	o.setLastError(safeMsg)
 	if o.bus != nil {
 		o.bus.Publish("resource:invalidated", map[string]any{
 			"resource": "singbox.status",
@@ -399,6 +433,10 @@ func (o *Operator) tunnelsFile() string {
 // clashAPIAddr's 9099), which silently broke our LogForwarder /
 // DelayChecker on existing installs.
 func ensureBaseConfig(configDir string, loggers ...*slog.Logger) {
+	ensureBaseConfigWithLogLevel(configDir, "trace", loggers...)
+}
+
+func ensureBaseConfigWithLogLevel(configDir, desiredLogLevel string, loggers ...*slog.Logger) {
 	var log *slog.Logger
 	if len(loggers) > 0 {
 		log = loggers[0]
@@ -406,14 +444,14 @@ func ensureBaseConfig(configDir string, loggers ...*slog.Logger) {
 	basePath := filepath.Join(configDir, "00-base.json")
 	if _, err := os.Stat(basePath); err == nil {
 		patchBaseClashPort(basePath)
-		patchBaseLogLevel(basePath)
+		patchBaseLogLevel(basePath, desiredLogLevel)
 		patchBaseDomainResolver(basePath)
 		patchBaseDirectOutbound(basePath, log)
 		patchBaseCacheFilePath(basePath)
 		return
 	}
 	_ = os.MkdirAll(configDir, 0755)
-	_ = writeJSONFile(basePath, freshBaseConfig())
+	_ = writeJSONFile(basePath, freshBaseConfigWithLogLevel(desiredLogLevel))
 }
 
 func logConfigPatchInfo(log *slog.Logger, msg string, args ...any) {
@@ -603,13 +641,9 @@ func filterOutOurDNSServers(in []any) []any {
 	return out
 }
 
-// patchBaseLogLevel raises the sing-box log level to "trace" when it is
-// missing or set to a coarser level (info/warn/error). Trace is the
-// default for fresh installs (see freshBaseConfig) — without it,
-// router-traffic diagnosis is hard because connection-level events are
-// suppressed. Idempotent on already-trace files; respects "debug" or
-// "panic"/"fatal" without overwriting (those are deliberate user choices).
-func patchBaseLogLevel(basePath string) {
+// patchBaseLogLevel updates 00-base.json log.level to desired settings
+// value and ensures log.timestamp exists.
+func patchBaseLogLevel(basePath, desiredLevel string) {
 	data, err := os.ReadFile(basePath)
 	if err != nil {
 		return
@@ -623,14 +657,19 @@ func patchBaseLogLevel(basePath string) {
 		logBlock = map[string]any{}
 		m["log"] = logBlock
 	}
+	desired := normalizeSingboxLogLevel(desiredLevel)
 	current, _ := logBlock["level"].(string)
-	switch current {
-	case "trace", "debug", "panic", "fatal":
-		return
+	changed := false
+	if current != desired {
+		logBlock["level"] = desired
+		changed = true
 	}
-	logBlock["level"] = "trace"
 	if _, ok := logBlock["timestamp"]; !ok {
 		logBlock["timestamp"] = true
+		changed = true
+	}
+	if !changed {
+		return
 	}
 	_ = writeJSONFile(basePath, m)
 }
@@ -940,7 +979,7 @@ func patchBaseCacheFilePath(basePath string) {
 	_ = writeJSONFile(basePath, m)
 }
 
-// patchTunnelsSlotStripBaseDNS self-heals 10-tunnels.json files polluted
+// patchTunnelsSlotStripBaseOwnedBlocks self-heals 10-tunnels.json files polluted
 // by a pre-fix bootstrap. Older NewConfig() emitted log/dns/experimental
 // into the fresh skeleton — when AddTunnels (operator.go AddTunnels →
 // loadOrInitConfig) created 10-tunnels.json for the first time, those
@@ -957,13 +996,11 @@ func patchBaseCacheFilePath(basePath string) {
 //
 // Idempotent: no-op when the file is missing, when there is no `dns`
 // key, or when the dns block has no servers from the owned-set. Safe to
-// run on every NewOperator. Does NOT touch `log` / `experimental` blocks
-// that pre-fix NewConfig() also emitted — the cross-slot validator
-// (orchestrator/validate.go) only inspects inbounds/outbounds/dns.servers
-// tags, so duplicate log/experimental keys in 10-tunnels.json are
-// harmless noise that sing-box merges over. Kept out of scope to keep
-// this targeted fix narrow.
-func patchTunnelsSlotStripBaseDNS(tunnelsPath string) {
+// run on every NewOperator. Also strips top-level `log` from the
+// tunnels slot: log.level is base-owned (00-base.json), and leaving a
+// stale log block in 10-tunnels.json can override user-selected base
+// level during config merge.
+func patchTunnelsSlotStripBaseOwnedBlocks(tunnelsPath string) {
 	data, err := os.ReadFile(tunnelsPath)
 	if err != nil {
 		return
@@ -972,8 +1009,16 @@ func patchTunnelsSlotStripBaseDNS(tunnelsPath string) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		return
 	}
+	changed := false
+	if _, hasLog := m["log"]; hasLog {
+		delete(m, "log")
+		changed = true
+	}
 	dns, ok := m["dns"].(map[string]any)
 	if !ok {
+		if changed {
+			_ = writeJSONFile(tunnelsPath, m)
+		}
 		return
 	}
 	servers, _ := dns["servers"].([]any)
@@ -986,33 +1031,47 @@ func patchTunnelsSlotStripBaseDNS(tunnelsPath string) {
 	hasUserRules := len(rulesArr) > 0
 	if len(filtered) == 0 && !hasUserRules {
 		delete(m, "dns")
+		changed = true
 	} else {
 		if len(filtered) == 0 {
-			delete(dns, "servers")
+			if _, ok := dns["servers"]; ok {
+				delete(dns, "servers")
+				changed = true
+			}
 		} else {
 			dns["servers"] = filtered
+			changed = true
 		}
 		// Strip final/strategy keys that mirror 00-base defaults — they
 		// would otherwise persist as zombie config noise after the
 		// owned-set servers vanish.
 		if final, _ := dns["final"].(string); final == "dns-doh" || final == "dns-bootstrap" {
 			delete(dns, "final")
+			changed = true
 		}
 		if strategy, _ := dns["strategy"].(string); strategy == "ipv4_only" {
 			delete(dns, "strategy")
+			changed = true
 		}
 		if len(dns) == 0 {
 			delete(m, "dns")
+			changed = true
 		}
 	}
-	_ = writeJSONFile(tunnelsPath, m)
+	if changed {
+		_ = writeJSONFile(tunnelsPath, m)
+	}
 }
 
 // freshBaseConfig returns the canonical base sing-box config. Single
 // source of truth for ensureBaseConfig (initial write + self-heal path).
 func freshBaseConfig() map[string]any {
+	return freshBaseConfigWithLogLevel("trace")
+}
+
+func freshBaseConfigWithLogLevel(logLevel string) map[string]any {
 	return map[string]any{
-		"log": map[string]any{"level": "trace", "timestamp": true},
+		"log": map[string]any{"level": normalizeSingboxLogLevel(logLevel), "timestamp": true},
 		"experimental": map[string]any{
 			// MUST match clashAPIAddr — our ClashClient and LogForwarder
 			// connect here. Hard-coding 9090 (sing-box default) used to
@@ -1060,6 +1119,63 @@ func (o *Operator) Binary() string { return o.binary }
 // merged config is valid before reload.
 func (o *Operator) ValidateConfigDir(ctx context.Context) error {
 	return o.validator.Validate(o.configPath)
+}
+
+// ApplyLogLevel updates 00-base.json log.level and ensures log.timestamp
+// is present. When orchestrator is wired, writes through SlotBase so
+// validate+reload lifecycle stays centralized.
+func (o *Operator) ApplyLogLevel(level string) error {
+	desired := normalizeSingboxLogLevel(level)
+	basePath := filepath.Join(o.configPath, "00-base.json")
+
+	var base map[string]any
+	data, err := os.ReadFile(basePath)
+	switch {
+	case os.IsNotExist(err):
+		base = freshBaseConfigWithLogLevel(desired)
+	case err != nil:
+		return fmt.Errorf("read 00-base.json: %w", err)
+	default:
+		var parsed map[string]any
+		if err := json.Unmarshal(data, &parsed); err != nil {
+			return fmt.Errorf("parse 00-base.json: %w", err)
+		}
+		if parsed == nil {
+			parsed = map[string]any{}
+		}
+		logBlock, _ := parsed["log"].(map[string]any)
+		if logBlock == nil {
+			logBlock = map[string]any{}
+			parsed["log"] = logBlock
+		}
+		logBlock["level"] = desired
+		if _, ok := logBlock["timestamp"]; !ok {
+			logBlock["timestamp"] = true
+		}
+		base = parsed
+	}
+
+	raw, err := json.MarshalIndent(base, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal 00-base.json: %w", err)
+	}
+
+	if o.orch != nil {
+		if err := o.orch.Save(orchestrator.SlotBase, raw); err != nil {
+			return fmt.Errorf("save base slot: %w", err)
+		}
+		return nil
+	}
+
+	if err := writeJSONFile(basePath, base); err != nil {
+		return fmt.Errorf("write base file: %w", err)
+	}
+	if running, _ := o.proc.IsRunning(); running {
+		if err := o.proc.Reload(); err != nil {
+			return fmt.Errorf("reload sing-box: %w", err)
+		}
+	}
+	return nil
 }
 
 // preflightConfigDir validates config.d/ before any action that would
@@ -1911,9 +2027,10 @@ func (o *Operator) startAndWait(ctx context.Context) error {
 		o.runtimeLogger.Info("start-and-wait", "", "starting sing-box process")
 	}
 	if err := o.proc.Start(); err != nil {
-		o.setLastError(err.Error())
+		safeErr := sanitizeSingboxLogText(err.Error())
+		o.setLastError(safeErr)
 		if o.runtimeLogger != nil {
-			o.runtimeLogger.Error("start-and-wait", "", "process start failed: "+err.Error())
+			o.runtimeLogger.Error("start-and-wait", "", "process start failed: "+safeErr)
 		}
 		return err
 	}
@@ -1925,10 +2042,10 @@ func (o *Operator) startAndWait(ctx context.Context) error {
 		// tail captured by handleExit if it fired, otherwise note the
 		// clash timeout.
 		if o.LastError() == "" {
-			o.setLastError("sing-box запущен, но Clash API не отвечает: " + err.Error())
+			o.setLastError("sing-box запущен, но Clash API не отвечает: " + sanitizeSingboxLogText(err.Error()))
 		}
 		if o.runtimeLogger != nil {
-			o.runtimeLogger.Error("start-and-wait", "", "clash API readiness timeout: "+err.Error())
+			o.runtimeLogger.Error("start-and-wait", "", "clash API readiness timeout: "+sanitizeSingboxLogText(err.Error()))
 		}
 		return err
 	}
