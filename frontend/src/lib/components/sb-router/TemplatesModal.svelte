@@ -427,7 +427,7 @@
     .body {
       padding: 4px var(--sp-3) var(--sp-3);
     }
-    .footer-collect, .footer {
+    .footer-collect {
       padding: 10px var(--sp-3);
     }
   }
