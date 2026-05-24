@@ -116,12 +116,21 @@ function fallbackTitle(rule: SingboxRouterRule, serviceKey: string, index: numbe
     return serviceKey.charAt(0).toUpperCase() + serviceKey.slice(1).replace('_', ' ');
   }
   if (rule.ip_is_private) return 'Локальная сеть';
-  if (rule.action === 'sniff') return 'Sniff';
-  if (rule.action === 'hijack-dns') return 'Hijack DNS';
+  if (rule.action === 'sniff') return 'Анализ протокола';
+  if (rule.action === 'hijack-dns') return 'Перехват DNS';
   if (rule.domain_suffix?.length) return rule.domain_suffix[0];
   if (rule.ip_cidr?.length) return rule.ip_cidr[0];
   if (rule.rule_set?.length) return rule.rule_set[0];
   return `Правило #${index + 1}`;
+}
+
+/* ─── Subtitle (system rules show technical detail per design) ─────── */
+
+function systemSubtitle(rule: SingboxRouterRule): string | undefined {
+  if (rule.action === 'sniff') return 'sniff';
+  if (rule.action === 'hijack-dns') return 'protocol=dns OR port=53';
+  if (rule.ip_is_private) return 'RFC1918 · loopback · link-local · CGNAT';
+  return undefined;
 }
 
 /* ─── Stable id ─────────────────────────────────────────────────────── */
@@ -151,7 +160,11 @@ export function singboxRuleToCard(
   const matchers = extractMatcherChips(rule, rulesetLabels);
   const isSystem = isSystemRule(rule);
   const title = fallbackTitle(rule, serviceKey, index);
-  const subtitle = matchers.length > 4 ? `${matchers.length} матчеров` : undefined;
+  const subtitle = isSystem
+    ? systemSubtitle(rule)
+    : matchers.length > 4
+      ? `${matchers.length} матчеров`
+      : undefined;
 
   return {
     id: ruleId(rule, index),

@@ -207,21 +207,29 @@ describe('singboxRuleToCard', () => {
     expect(a.id).toBe(b.id);
   });
 
-  it('sniff system rule renders as mono badge', () => {
+  it('sniff system rule — title/subtitle по дизайну', () => {
     const card = singboxRuleToCard({ action: 'sniff' }, 0, [], {});
     expect(card.isSystem).toBe(true);
-    expect(card.title).toBe('Sniff');
+    expect(card.title).toBe('Анализ протокола');
+    expect(card.subtitle).toBe('sniff');
     expect(card.action).toBe('sniff');
     expect(card.outbound.kind).toBe('sniff');
     expect(card.outbound.label).toBe('SNIFF');
   });
 
-  it('hijack-dns system rule renders as mono badge', () => {
+  it('hijack-dns system rule — title/subtitle по дизайну', () => {
     const card = singboxRuleToCard({ action: 'hijack-dns' }, 0, [], {});
     expect(card.isSystem).toBe(true);
-    expect(card.title).toBe('Hijack DNS');
+    expect(card.title).toBe('Перехват DNS');
+    expect(card.subtitle).toBe('protocol=dns OR port=53');
     expect(card.action).toBe('hijack-dns');
     expect(card.outbound.kind).toBe('hijack-dns');
     expect(card.outbound.label).toBe('HIJACK-DNS');
+  });
+
+  it('ip_is_private bypass — subtitle с RFC1918', () => {
+    const card = singboxRuleToCard({ ip_is_private: true, outbound: 'direct' }, 0, [], {});
+    expect(card.title).toBe('Локальная сеть');
+    expect(card.subtitle).toBe('RFC1918 · loopback · link-local · CGNAT');
   });
 });
