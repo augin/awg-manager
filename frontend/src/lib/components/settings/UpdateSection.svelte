@@ -7,41 +7,55 @@
 
 	interface Props {
 		updateInfo: UpdateInfo | null;
+		downloadRouteLabel?: string;
 	}
 
-	let { updateInfo = $bindable() }: Props = $props();
+	let { updateInfo = $bindable(), downloadRouteLabel = '' }: Props = $props();
 
 	let checking = $state(false);
 	let upgrading = $state(false);
 	let showConfirm = $state(false);
 	let showChangelog = $state(false);
 
+	const manualCheckTitle = $derived(
+		updateInfo?.available ? 'Проверить наличие более новой версии' : 'Проверить обновления'
+	);
+	const manualCheckLabel = $derived(
+		checking ? 'Проверка...' : updateInfo?.available ? 'Проверить ещё' : 'Проверить'
+	);
+
 	async function checkForUpdates() {
+		if (checking) return;
 		checking = true;
 		try {
 			updateInfo = await api.checkUpdate(true);
+			const viaInline = downloadRouteLabel ? ` через ${downloadRouteLabel}` : '';
+			const viaLine = downloadRouteLabel ? `\n(получено через ${downloadRouteLabel})` : '';
 			if (updateInfo.error) {
-				notifications.error(`Ошибка проверки: ${updateInfo.error}`);
+				notifications.error(`Ошибка проверки${viaInline}: ${updateInfo.error}`);
 			} else if (updateInfo.available) {
-				notifications.success(`Доступна версия ${updateInfo.latestVersion}`);
+				notifications.success(`Доступна версия ${updateInfo.latestVersion}${viaLine}`);
 			} else {
-				notifications.info('Обновлений нет');
+				notifications.info(`Обновлений нет${viaLine}`);
 			}
 			if (updateInfo.warning) {
 				notifications.info(updateInfo.warning);
 			}
 		} catch (e) {
-			notifications.error('Ошибка проверки обновлений');
+			const via = downloadRouteLabel ? ` через ${downloadRouteLabel}` : '';
+			notifications.error(`Ошибка проверки обновлений${via}`);
 		} finally {
 			checking = false;
 		}
 	}
 
 	function confirmUpgrade() {
+		if (checking || !updateInfo?.available) return;
 		showConfirm = true;
 	}
 
 	async function applyUpgrade() {
+		if (checking || !updateInfo?.available) return;
 		showConfirm = false;
 		upgrading = true;
 
@@ -84,7 +98,6 @@
 
 <div class="setting-row update-row">
 	<div class="flex flex-col gap-1 update-info">
-		<span class="font-medium">Версия</span>
 		{#if upgrading}
 			<span class="setting-description update-status">
 				Обновление... не закрывайте страницу
@@ -114,30 +127,34 @@
 		{:else}
 			{#if updateInfo?.currentVersion}
 				<Button
-					variant="ghost"
+					variant="secondary"
 					size="sm"
 					onclick={() => (showChangelog = true)}
 				>
 					Что нового
 				</Button>
 			{/if}
-			{#if updateInfo?.available}
-				<Button
-					variant="primary"
-					size="sm"
-					onclick={confirmUpgrade}
-				>
-					Обновить
-				</Button>
-			{/if}
+			<!-- Manual check must stay available even when an update is already cached:
+				repo may publish a newer build after the cached result was fetched. -->
 			<Button
 				variant="secondary"
 				size="sm"
 				onclick={checkForUpdates}
 				loading={checking}
+				title={manualCheckTitle}
 			>
-				{checking ? 'Проверка...' : 'Проверить'}
+				{manualCheckLabel}
 			</Button>
+			{#if updateInfo?.available}
+				<Button
+					variant="primary"
+					size="sm"
+					onclick={confirmUpgrade}
+					disabled={checking}
+				>
+					Обновить
+				</Button>
+			{/if}
 		{/if}
 	</div>
 </div>
@@ -160,8 +177,14 @@
 {#if updateInfo?.currentVersion}
 	<ChangelogModal
 		open={showChangelog}
+		pendingUpdate={Boolean(updateInfo.available && updateInfo.latestVersion)}
 		fromVersion={updateInfo.available && updateInfo.latestVersion ? updateInfo.currentVersion : ''}
 		toVersion={updateInfo.available && updateInfo.latestVersion ? updateInfo.latestVersion : updateInfo.currentVersion}
+		sourceLabel={downloadRouteLabel}
+		oncheckUpdates={() => {
+			showChangelog = false;
+			void checkForUpdates();
+		}}
 		onclose={() => (showChangelog = false)}
 	/>
 {/if}
@@ -194,7 +217,52 @@
 		}
 
 		.update-actions {
-			justify-content: flex-start;
+			justify-content: stretch;
+			width: 100%;
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.5rem;
+		}
+
+		.update-actions :global(button) {
+			width: 100%;
+		}
+	}
+
+	/* Keep the update card readable in the narrow settings column:
+		status takes its own row, actions are arranged below. */
+	.update-row.setting-row {
+		grid-template-columns: minmax(0, 1fr);
+		align-items: start;
+	}
+
+	.update-actions {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		justify-content: stretch;
+		width: 100%;
+		flex-shrink: 1;
+	}
+
+	.update-actions :global(button) {
+		width: 100%;
+		min-width: 0;
+	}
+
+	.update-actions :global(button:first-child:nth-last-child(3)),
+	.update-actions :global(button:first-child:last-child) {
+		grid-column: 1 / -1;
+	}
+
+	.update-spinner {
+		grid-column: 1 / -1;
+		justify-self: end;
+	}
+
+	@media (min-width: 641px) {
+		.update-actions {
+			justify-self: end;
+			max-width: 28rem;
 		}
 	}
 
@@ -214,7 +282,6 @@
 	.update-status {
 		color: var(--accent) !important;
 	}
-
 	.update-spinner {
 		width: 20px;
 		height: 20px;

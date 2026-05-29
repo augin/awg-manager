@@ -758,6 +758,21 @@ definitions:
         example: true
         type: boolean
     type: object
+  api.DnsProxyInfoData:
+    properties:
+      proxies:
+        items:
+          $ref: '#/definitions/diagnostics.DNSProxy'
+        type: array
+    type: object
+  api.DnsProxyInfoEnvelope:
+    properties:
+      data:
+        $ref: '#/definitions/api.DnsProxyInfoData'
+      success:
+        example: true
+        type: boolean
+    type: object
   api.DnsRouteDTO:
     properties:
       backend:
@@ -881,6 +896,15 @@ definitions:
         example: direct
         type: string
       tag:
+        example: direct
+        type: string
+    type: object
+  api.DownloadSettingsDTO:
+    properties:
+      routeKind:
+        example: direct
+        type: string
+      routeTag:
         example: direct
         type: string
     type: object
@@ -1097,11 +1121,28 @@ definitions:
       installed:
         example: true
         type: boolean
+      lastError:
+        example: 'neo restart: exit status 1'
+        type: string
+      pid:
+        example: 12345
+        type: integer
+      processState:
+        enum:
+        - not_installed
+        - stopped
+        - running
+        - dead
+        example: running
+        type: string
       running:
         example: true
         type: boolean
+      stalePid:
+        example: 12345
+        type: integer
       version:
-        example: 0.3.1
+        example: 2.4.1
         type: string
     type: object
   api.HydraRouteStatusResponse:
@@ -2290,6 +2331,8 @@ definitions:
         type: boolean
       dnsRoute:
         $ref: '#/definitions/api.DNSRouteSettingsDTO'
+      download:
+        $ref: '#/definitions/api.DownloadSettingsDTO'
       logging:
         $ref: '#/definitions/api.LoggingSettingsDTO'
       monitoringExcludedTunnels:
@@ -2414,6 +2457,51 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/api.SingboxDNSGlobalsData'
+      success:
+        example: true
+        type: boolean
+    type: object
+  api.SingboxDNSRewriteDTO:
+    properties:
+      ips:
+        example:
+        - 104.25.158.178
+        items:
+          type: string
+        type: array
+      pattern:
+        example: finland10*.discord.media
+        type: string
+    type: object
+  api.SingboxDNSRewriteDeleteRequest:
+    properties:
+      index:
+        example: 0
+        type: integer
+    type: object
+  api.SingboxDNSRewriteMoveRequest:
+    properties:
+      from:
+        example: 3
+        type: integer
+      to:
+        example: 0
+        type: integer
+    type: object
+  api.SingboxDNSRewriteUpdateRequest:
+    properties:
+      index:
+        example: 0
+        type: integer
+      rewrite:
+        $ref: '#/definitions/api.SingboxDNSRewriteDTO'
+    type: object
+  api.SingboxDNSRewritesListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/api.SingboxDNSRewriteDTO'
+        type: array
       success:
         example: true
         type: boolean
@@ -2676,6 +2764,36 @@ definitions:
         example: 'совпало по: domain_suffix'
         type: string
     type: object
+  api.SingboxRouterInspectProgressDTO:
+    properties:
+      final:
+        example: direct
+        type: string
+      message:
+        example: Проверяем rule_set geosite-youtube через sing-box…
+        type: string
+      phase:
+        example: rule_set_match_start
+        type: string
+      ruleIndex:
+        example: 3
+        type: integer
+      ruleSetIndex:
+        example: 0
+        type: integer
+      ruleSetTag:
+        example: geosite-youtube
+        type: string
+      ruleSetTotal:
+        example: 2
+        type: integer
+      ruleTotal:
+        example: 17
+        type: integer
+      usingDraft:
+        example: true
+        type: boolean
+    type: object
   api.SingboxRouterInspectRequest:
     properties:
       domain:
@@ -2695,6 +2813,19 @@ definitions:
       success:
         example: true
         type: boolean
+    type: object
+  api.SingboxRouterInspectStreamEventDTO:
+    properties:
+      error:
+        example: 'load router config: ...'
+        type: string
+      progress:
+        $ref: '#/definitions/api.SingboxRouterInspectProgressDTO'
+      result:
+        $ref: '#/definitions/api.SingboxRouterInspectData'
+      type:
+        example: progress
+        type: string
     type: object
   api.SingboxRouterIssueDTO:
     properties:
@@ -3225,7 +3356,19 @@ definitions:
         items:
           type: string
         type: array
+      freeBytes:
+        example: 8221456
+        type: integer
+      installState:
+        example: outdated_no_space
+        type: string
       installed:
+        example: true
+        type: boolean
+      lastError:
+        example: +0000 2026-05-14 21:45:56 FATAL[0000] failed to initialize
+        type: string
+      ndmsProxyEnabled:
         example: true
         type: boolean
       pid:
@@ -3234,6 +3377,9 @@ definitions:
       proxyComponent:
         example: true
         type: boolean
+      requiredBytes:
+        example: 32145678
+        type: integer
       requiredSha256:
         example: 76e67bb07b5c2bf4cef108c2f21a5ffaa684d124c21ffe220fc89b39cf1de934
         type: string
@@ -3999,6 +4145,31 @@ definitions:
         example: My VPN
         type: string
     type: object
+  api.TunnelReferencedDetails:
+    properties:
+      deviceProxy:
+        example: false
+        type: boolean
+      routerOther:
+        items:
+          type: string
+        type: array
+      routerRules:
+        items:
+          type: integer
+        type: array
+      tunnelId:
+        example: tun-a
+        type: string
+    type: object
+  api.TunnelReferencedResponse:
+    properties:
+      details:
+        $ref: '#/definitions/api.TunnelReferencedDetails'
+      error:
+        example: tunnel_referenced
+        type: string
+    type: object
   api.TunnelStateInfoDTO:
     properties:
       hasHandshake:
@@ -4192,6 +4363,12 @@ definitions:
     type: object
   api.UpdateSettingsDTO:
     properties:
+      channel:
+        enum:
+        - stable
+        - develop
+        example: stable
+        type: string
       checkEnabled:
         example: true
         type: boolean
@@ -4335,6 +4512,94 @@ definitions:
       txBytes:
         example: 524288
         type: integer
+    type: object
+  diagnostics.DNSProxy:
+    properties:
+      displayName:
+        type: string
+      name:
+        type: string
+      rebind:
+        $ref: '#/definitions/diagnostics.DNSRebind'
+      stat:
+        $ref: '#/definitions/diagnostics.DNSProxyStat'
+      staticRecords:
+        items:
+          $ref: '#/definitions/diagnostics.DNSStaticRecord'
+        type: array
+      tcpPort:
+        type: integer
+      udpPort:
+        type: integer
+      upstreams:
+        items:
+          $ref: '#/definitions/diagnostics.DNSUpstream'
+        type: array
+    type: object
+  diagnostics.DNSProxyStat:
+    properties:
+      cacheHitRatio:
+        type: number
+      cacheHits:
+        type: integer
+      memory:
+        type: string
+      proxyRequestsSent:
+        type: integer
+      totalRequests:
+        type: integer
+    type: object
+  diagnostics.DNSRebind:
+    properties:
+      enabled:
+        type: boolean
+      excludes:
+        items:
+          type: string
+        type: array
+      nets:
+        items:
+          type: string
+        type: array
+    type: object
+  diagnostics.DNSStaticRecord:
+    properties:
+      flag:
+        type: integer
+      host:
+        type: string
+      type:
+        description: A | AAAA
+        type: string
+      value:
+        type: string
+    type: object
+  diagnostics.DNSUpstream:
+    properties:
+      aRcvd:
+        type: integer
+      address:
+        type: string
+      avgResp:
+        type: string
+      encryption:
+        description: DoT | DoH | plain
+        type: string
+      medResp:
+        type: string
+      nxRcvd:
+        type: integer
+      port:
+        type: integer
+      rSent:
+        type: integer
+      rank:
+        type: integer
+      scope:
+        description: '"all" or a domain like "ru"'
+        type: string
+      sni:
+        type: string
     type: object
 info:
   contact: {}
@@ -5112,6 +5377,30 @@ paths:
       summary: Toggle tunnel autostart
       tags:
       - control
+  /diagnostics/dns-proxy:
+    get:
+      description: 'Running ndnproxy state: upstreams, per-policy stats, static records,
+        rebind.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.DnsProxyInfoEnvelope'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+      security:
+      - CookieAuth: []
+      summary: DNS proxy info
+      tags:
+      - diagnostics
   /diagnostics/result:
     get:
       produces:
@@ -5540,9 +5829,9 @@ paths:
             $ref: '#/definitions/api.APIErrorEnvelope'
       security:
       - CookieAuth: []
-      summary: List geo download outbounds
+      summary: List service download outbounds
       tags:
-      - hydraroute
+      - download
   /events:
     get:
       produces:
@@ -8149,6 +8438,160 @@ paths:
       summary: Update singbox-router DNS globals
       tags:
       - singbox-router
+  /singbox/router/dns/rewrites/add:
+    post:
+      consumes:
+      - application/json
+      description: Appends a new DNS rewrite (glob pattern → IPs). The pattern must
+        be unique.
+      parameters:
+      - description: DNS rewrite descriptor
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.SingboxDNSRewriteDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.OkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+      security:
+      - CookieAuth: []
+      summary: Add singbox-router DNS rewrite
+      tags:
+      - singbox-router
+  /singbox/router/dns/rewrites/delete:
+    post:
+      consumes:
+      - application/json
+      description: Removes the DNS rewrite at the given index (0-based priority slot).
+      parameters:
+      - description: Index of the rewrite to remove
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.SingboxDNSRewriteDeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.OkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+      security:
+      - CookieAuth: []
+      summary: Delete singbox-router DNS rewrite
+      tags:
+      - singbox-router
+  /singbox/router/dns/rewrites/list:
+    get:
+      description: Returns all DNS rewrites (glob pattern → IPs) in priority order.
+        Always a JSON array, never null.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.SingboxDNSRewritesListResponse'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+      security:
+      - CookieAuth: []
+      summary: List singbox-router DNS rewrites
+      tags:
+      - singbox-router
+  /singbox/router/dns/rewrites/move:
+    post:
+      consumes:
+      - application/json
+      description: Moves the DNS rewrite from index `from` to index `to` (both 0-based).
+      parameters:
+      - description: from/to indices
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.SingboxDNSRewriteMoveRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.OkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+      security:
+      - CookieAuth: []
+      summary: Move singbox-router DNS rewrite
+      tags:
+      - singbox-router
+  /singbox/router/dns/rewrites/update:
+    post:
+      consumes:
+      - application/json
+      description: Replaces the DNS rewrite at the given index (0-based priority slot)
+        with the provided one.
+      parameters:
+      - description: Index + replacement rewrite
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.SingboxDNSRewriteUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.OkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+      security:
+      - CookieAuth: []
+      summary: Update singbox-router DNS rewrite
+      tags:
+      - singbox-router
   /singbox/router/dns/rules/add:
     post:
       consumes:
@@ -8430,9 +8873,11 @@ paths:
       - singbox-router
   /singbox/router/enable:
     post:
-      description: Starts the singbox-router engine and installs iptables/policy rules.
-        Returns 400 with code POLICY_NOT_CONFIGURED or POLICY_MISSING when the router
-        policy mode is incomplete.
+      description: 'Starts the singbox-router engine and installs iptables/policy
+        rules. Returns 400 with code POLICY_NOT_CONFIGURED or POLICY_MISSING when
+        the router policy mode is incomplete. Returns 503 SINGBOX_NOT_READY when sing-box
+        did not become ready within the boot-wait window — iptables install is deliberately
+        skipped to avoid orphaning DNS:53 redirects (issue #221).'
       produces:
       - application/json
       responses:
@@ -8450,6 +8895,10 @@ paths:
             $ref: '#/definitions/api.APIErrorEnvelope'
         "500":
           description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "503":
+          description: sing-box did not come up in time
           schema:
             $ref: '#/definitions/api.APIErrorEnvelope'
       security:
@@ -8491,6 +8940,45 @@ paths:
       security:
       - CookieAuth: []
       summary: Inspect router routing decision
+      tags:
+      - singbox-router
+  /singbox/router/inspect/stream:
+    get:
+      description: 'Streams route-inspector progress via Server-Sent Events. Event
+        names: progress, result, inspect-error. Data payload for each event is JSON
+        shaped as SingboxRouterInspectStreamEventDTO.'
+      parameters:
+      - description: Domain or IP to test
+        in: query
+        name: domain
+        required: true
+        type: string
+      - description: Destination port, 0-65535
+        in: query
+        name: port
+        type: integer
+      - description: Protocol (tcp/udp)
+        in: query
+        name: protocol
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE event data payload
+          schema:
+            $ref: '#/definitions/api.SingboxRouterInspectStreamEventDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+      security:
+      - CookieAuth: []
+      summary: Inspect router routing decision (SSE stream)
       tags:
       - singbox-router
   /singbox/router/outbounds/add:
@@ -9221,8 +9709,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Replaces the ruleset identified by tag with new content. Tag rename
-        is not supported.
+      description: Replaces the ruleset identified by tag with new content. If the
+        payload tag differs, references are renamed atomically.
       parameters:
       - description: Tag + new RuleSet payload
         in: body
@@ -9598,7 +10086,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates subscription from URL or inline share links.
+      description: Creates subscription from URL or inline share links. Returns 422
+        VALIDATION_FAILED when the merged sing-box config is rejected by `sing-box
+        check` (e.g. reality outbound without uTLS).
       parameters:
       - description: create request
         in: body
@@ -9619,6 +10109,10 @@ paths:
             $ref: '#/definitions/api.APIErrorEnvelope'
         "412":
           description: Precondition Failed
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "422":
+          description: sing-box validation rejected the subscription
           schema:
             $ref: '#/definitions/api.APIErrorEnvelope'
         "500":
@@ -9748,6 +10242,14 @@ paths:
           description: Conflict
           schema:
             $ref: '#/definitions/api.APIErrorEnvelope'
+        "422":
+          description: sing-box validation rejected the new member
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
       security:
       - CookieAuth: []
       summary: Add a manual member to an inline subscription
@@ -9788,6 +10290,14 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/api.APIErrorEnvelope'
+        "422":
+          description: sing-box validation rejected the remainder
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
       security:
       - CookieAuth: []
       summary: Remove a member from an inline subscription
@@ -9817,6 +10327,9 @@ paths:
       - subscriptions
   /singbox/subscriptions/refresh:
     post:
+      description: Re-fetches the provider URL and re-runs Pass 1 / Pass 2 validation.
+        Returns 422 VALIDATION_FAILED when the refreshed config is rejected by `sing-box
+        check`.
       parameters:
       - description: subscription id
         in: query
@@ -9829,6 +10342,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/api.SubscriptionResponse'
+        "422":
+          description: sing-box validation rejected the refreshed subscription
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
         "500":
           description: Internal Server Error
           schema:
@@ -9840,6 +10357,9 @@ paths:
     put:
       consumes:
       - application/json
+      description: Updates subscription metadata or refreshes from a new URL. Returns
+        422 VALIDATION_FAILED when the new merged config is rejected by `sing-box
+        check`.
       parameters:
       - description: subscription id
         in: query
@@ -9861,6 +10381,10 @@ paths:
             $ref: '#/definitions/api.SubscriptionResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "422":
+          description: sing-box validation rejected the subscription
           schema:
             $ref: '#/definitions/api.APIErrorEnvelope'
         "500":
@@ -10075,6 +10599,26 @@ paths:
       - singbox
   /singbox/tunnels/test/speed/stream:
     get:
+      parameters:
+      - description: Sing-box outbound tag
+        in: query
+        name: tag
+        required: true
+        type: string
+      - description: iperf3 server host
+        in: query
+        name: server
+        required: true
+        type: string
+      - description: iperf3 server port
+        in: query
+        name: port
+        required: true
+        type: integer
+      - description: Kernel interface override (NDMS Proxy must be enabled)
+        in: query
+        name: iface
+        type: string
       produces:
       - text/event-stream
       responses:
@@ -10084,6 +10628,14 @@ paths:
             type: string
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "404":
+          description: Tunnel tag not found
+          schema:
+            $ref: '#/definitions/api.APIErrorEnvelope'
+        "412":
+          description: NDMS Proxy disabled — iface override unavailable
           schema:
             $ref: '#/definitions/api.APIErrorEnvelope'
         "500":
@@ -10951,6 +11503,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/api.APIErrorEnvelope'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.TunnelReferencedResponse'
         "500":
           description: Internal Server Error
           schema:

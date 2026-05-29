@@ -4,6 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,7 +15,55 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hoaxisr/awg-manager/internal/sys/httpdownload"
 )
+
+type fakeDownloader struct {
+	downloadFileFn func(ctx context.Context, req DownloadFileRequest) (DownloadFileResult, error)
+	lastReq        DownloadFileRequest
+	callCount      int
+}
+
+type testHTTPDownloader struct{}
+
+func (d *testHTTPDownloader) DownloadFile(ctx context.Context, req DownloadFileRequest) (DownloadFileResult, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, req.URL, nil)
+	if err != nil {
+		return DownloadFileResult{}, err
+	}
+	resp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		return DownloadFileResult{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return DownloadFileResult{}, fmt.Errorf("status %d", resp.StatusCode)
+	}
+	out, err := os.OpenFile(req.DestPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return DownloadFileResult{}, err
+	}
+	defer out.Close()
+	src := io.Reader(resp.Body)
+	if req.Progress != nil {
+		src = httpdownload.NewReader(resp.Body, resp.ContentLength, req.Progress)
+	}
+	n, err := io.Copy(out, src)
+	if err != nil {
+		return DownloadFileResult{}, err
+	}
+	return DownloadFileResult{Path: req.DestPath, Size: n}, nil
+}
+
+func (f *fakeDownloader) DownloadFile(ctx context.Context, req DownloadFileRequest) (DownloadFileResult, error) {
+	f.callCount++
+	f.lastReq = req
+	if f.downloadFileFn != nil {
+		return f.downloadFileFn(ctx, req)
+	}
+	return DownloadFileResult{Path: req.DestPath}, nil
+}
 
 func TestInstaller_Download_Success(t *testing.T) {
 	body := []byte("fake sing-box binary contents")
@@ -27,6 +78,7 @@ func TestInstaller_Download_Success(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "sing-box")
 	inst := New(target, "test-arch", BinarySpec{Version: "1.13.11", URL: srv.URL, SHA256: hexSum}, nil)
+	inst.SetDownloader(&testHTTPDownloader{})
 
 	tmp, err := inst.Download(context.Background(), nil)
 	if err != nil {
@@ -50,6 +102,7 @@ func TestInstaller_Download_SHAMismatch(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "sing-box")
 	inst := New(target, "test-arch", BinarySpec{Version: "1.13.11", URL: srv.URL, SHA256: "0000"}, nil)
+	inst.SetDownloader(&testHTTPDownloader{})
 
 	if _, err := inst.Download(context.Background(), nil); err == nil {
 		t.Fatal("expected SHA mismatch error, got nil")
@@ -68,6 +121,7 @@ func TestInstaller_Download_HTTPError(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "sing-box")
 	inst := New(target, "test-arch", BinarySpec{Version: "1.13.11", URL: srv.URL, SHA256: "0000"}, nil)
+	inst.SetDownloader(&testHTTPDownloader{})
 
 	if _, err := inst.Download(context.Background(), nil); err == nil {
 		t.Fatal("expected error on 404, got nil")
@@ -219,6 +273,7 @@ func TestInstaller_Download_ContextCancellation(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "sing-box")
 	inst := New(target, "test-arch", BinarySpec{Version: "1.13.11", URL: srv.URL, SHA256: "0000"}, nil)
+	inst.SetDownloader(&testHTTPDownloader{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -231,5 +286,194 @@ func TestInstaller_Download_ContextCancellation(t *testing.T) {
 	}
 	if _, err := os.Stat(target + ".tmp"); !os.IsNotExist(err) {
 		t.Errorf("tmp file leaked after context cancellation: %v", err)
+	}
+}
+
+func TestInstaller_Download_UsesDownloaderRequestFields(t *testing.T) {
+	body := []byte("fake managed binary")
+	sum := sha256.Sum256(body)
+	hexSum := hex.EncodeToString(sum[:])
+
+	dir := t.TempDir()
+	target := filepath.Join(dir, "sing-box")
+	fdl := &fakeDownloader{}
+	fdl.downloadFileFn = func(_ context.Context, req DownloadFileRequest) (DownloadFileResult, error) {
+		if err := os.WriteFile(req.DestPath, body, 0o644); err != nil {
+			return DownloadFileResult{}, err
+		}
+		if req.Progress != nil {
+			req.Progress(int64(len(body)), int64(len(body)))
+		}
+		return DownloadFileResult{
+			Path: req.DestPath,
+			Size: int64(len(body)),
+		}, nil
+	}
+
+	inst := New(target, "test-arch", BinarySpec{Version: "1.13.11", URL: "https://example.org/sing-box", SHA256: hexSum}, nil)
+	inst.SetDownloader(fdl)
+
+	progressCalled := false
+	tmp, err := inst.Download(context.Background(), func(downloaded, total int64) {
+		progressCalled = downloaded == int64(len(body)) && total == int64(len(body))
+	})
+	if err != nil {
+		t.Fatalf("Download err: %v", err)
+	}
+	if tmp != target+".tmp" {
+		t.Fatalf("tmp path = %q, want %q", tmp, target+".tmp")
+	}
+	if fdl.callCount != 1 {
+		t.Fatalf("download calls = %d, want 1", fdl.callCount)
+	}
+	if fdl.lastReq.URL != "https://example.org/sing-box" {
+		t.Fatalf("url = %q", fdl.lastReq.URL)
+	}
+	if fdl.lastReq.Timeout != 5*time.Minute {
+		t.Fatalf("timeout = %s, want 5m", fdl.lastReq.Timeout)
+	}
+	if fdl.lastReq.DestPath != target+".tmp" {
+		t.Fatalf("dest path = %q", fdl.lastReq.DestPath)
+	}
+	if fdl.lastReq.MaxFileBytes <= 0 {
+		t.Fatalf("max file bytes = %d, want > 0", fdl.lastReq.MaxFileBytes)
+	}
+	if fdl.lastReq.Progress == nil || !progressCalled {
+		t.Fatalf("progress callback was not propagated")
+	}
+}
+
+func TestInstaller_Download_SHAMismatchRemovesTmpWithDownloader(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "sing-box")
+	fdl := &fakeDownloader{}
+	fdl.downloadFileFn = func(_ context.Context, req DownloadFileRequest) (DownloadFileResult, error) {
+		if err := os.WriteFile(req.DestPath, []byte("tampered"), 0o644); err != nil {
+			return DownloadFileResult{}, err
+		}
+		return DownloadFileResult{Path: req.DestPath, Size: 8}, nil
+	}
+
+	inst := New(target, "test-arch", BinarySpec{Version: "1.13.11", URL: "https://example.org/sing-box", SHA256: strings.Repeat("0", 64)}, nil)
+	inst.SetDownloader(fdl)
+
+	if _, err := inst.Download(context.Background(), nil); err == nil {
+		t.Fatal("expected sha mismatch")
+	}
+	if _, err := os.Stat(target + ".tmp"); !os.IsNotExist(err) {
+		t.Fatalf("tmp file leaked after SHA mismatch: %v", err)
+	}
+}
+
+func TestInstaller_Download_DownloaderErrorRemovesTmp(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "sing-box")
+	fdl := &fakeDownloader{
+		downloadFileFn: func(_ context.Context, _ DownloadFileRequest) (DownloadFileResult, error) {
+			return DownloadFileResult{}, errors.New("download failed")
+		},
+	}
+	inst := New(target, "test-arch", BinarySpec{Version: "1.13.11", URL: "https://example.org/sing-box", SHA256: strings.Repeat("0", 64)}, nil)
+	inst.SetDownloader(fdl)
+
+	if _, err := inst.Download(context.Background(), nil); err == nil {
+		t.Fatal("expected download error")
+	}
+	if _, err := os.Stat(target + ".tmp"); !os.IsNotExist(err) {
+		t.Fatalf("tmp file leaked after downloader error: %v", err)
+	}
+}
+
+func TestInstaller_Download_FailsWhenDownloaderNotConfigured(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "sing-box")
+	inst := New(target, "test-arch", BinarySpec{
+		Version: "1.13.11",
+		URL:     "https://example.org/sing-box",
+		SHA256:  strings.Repeat("0", 64),
+	}, nil)
+	inst.SetDownloader(nil)
+
+	if _, err := inst.Download(context.Background(), nil); err == nil || !strings.Contains(err.Error(), "downloader is not configured") {
+		t.Fatalf("expected downloader is not configured error, got %v", err)
+	}
+}
+
+// helper для write+sha управляемого бинарника
+func writeBinary(t *testing.T, path string, body string) (string, int64) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte(body))
+	return hex.EncodeToString(sum[:]), int64(len(body))
+}
+
+func TestEvaluateInstallState_CleanInstall_HasSpace(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "sing-box")
+	inst := New(target, "test-arch", BinarySpec{Version: "1.2.3", URL: "u", SHA256: "s", Size: 10 << 20}, nil)
+	inst.SetFreeDiskFn(func(string) (int64, bool) { return 200 << 20, true })
+	if got := inst.EvaluateInstallState(); got != InstallStateMissing {
+		t.Fatalf("got %q, want %q", got, InstallStateMissing)
+	}
+}
+
+func TestEvaluateInstallState_CleanInstall_NoSpace(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "sing-box")
+	inst := New(target, "test-arch", BinarySpec{Version: "1.2.3", URL: "u", SHA256: "s", Size: 100 << 20}, nil)
+	inst.SetFreeDiskFn(func(string) (int64, bool) { return 50 << 20, true })
+	if got := inst.EvaluateInstallState(); got != InstallStateMissingNoSpace {
+		t.Fatalf("got %q, want %q", got, InstallStateMissingNoSpace)
+	}
+}
+
+func TestEvaluateInstallState_Upgrade_HasSpace(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "sing-box")
+	_, _ = writeBinary(t, target, "old-content")
+	inst := New(target, "test-arch", BinarySpec{Version: "1.2.3", URL: "u", SHA256: "different-sha", Size: 10 << 20}, nil)
+	inst.SetFreeDiskFn(func(string) (int64, bool) { return 200 << 20, true })
+	if got := inst.EvaluateInstallState(); got != InstallStateMissing {
+		t.Fatalf("got %q, want %q (upgrade allowed)", got, InstallStateMissing)
+	}
+}
+
+func TestEvaluateInstallState_Upgrade_NoSpace(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "sing-box")
+	_, _ = writeBinary(t, target, "old-content")
+	inst := New(target, "test-arch", BinarySpec{Version: "1.2.3", URL: "u", SHA256: "different-sha", Size: 100 << 20}, nil)
+	inst.SetFreeDiskFn(func(string) (int64, bool) { return 50 << 20, true })
+	if got := inst.EvaluateInstallState(); got != InstallStateOutdatedNoSpace {
+		t.Fatalf("got %q, want %q", got, InstallStateOutdatedNoSpace)
+	}
+}
+
+func TestEvaluateInstallState_Installed_SameSHA(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "sing-box")
+	sha, _ := writeBinary(t, target, "pinned-content")
+	inst := New(target, "test-arch", BinarySpec{Version: "1.2.3", URL: "u", SHA256: sha, Size: 10 << 20}, nil)
+	inst.SetFreeDiskFn(func(string) (int64, bool) { return 200 << 20, true })
+	if got := inst.EvaluateInstallState(); got != InstallStateInstalled {
+		t.Fatalf("got %q, want %q", got, InstallStateInstalled)
+	}
+}
+
+func TestEvaluateInstallState_FreeDiskUnknown_SkipsGate(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "sing-box")
+	inst := New(target, "test-arch", BinarySpec{Version: "1.2.3", URL: "u", SHA256: "s", Size: 100 << 20}, nil)
+	inst.SetFreeDiskFn(func(string) (int64, bool) { return 0, false })
+	if got := inst.EvaluateInstallState(); got != InstallStateMissing {
+		t.Fatalf("got %q, want %q", got, InstallStateMissing)
+	}
+}
+
+func TestEvaluateInstallState_RequiredSizeZero_SkipsGate(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "sing-box")
+	inst := New(target, "test-arch", BinarySpec{Version: "1.2.3", URL: "u", SHA256: "s", Size: 0}, nil)
+	inst.SetFreeDiskFn(func(string) (int64, bool) { return 1 << 10, true })
+	if got := inst.EvaluateInstallState(); got != InstallStateMissing {
+		t.Fatalf("got %q, want %q", got, InstallStateMissing)
 	}
 }

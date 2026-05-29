@@ -282,4 +282,19 @@
         padding: 1rem;
         border-top: 1px solid var(--border);
     }
+
+    @media (max-width: 640px) {
+        .modal-footer {
+            justify-content: stretch;
+            align-items: stretch;
+        }
+
+        .modal-footer :global(button),
+        .modal-footer :global(a),
+        .modal-footer :global(.btn) {
+            flex: 1 1 0;
+            min-width: 0;
+            width: 100%;
+        }
+    }
 </style>

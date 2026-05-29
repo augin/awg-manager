@@ -19,18 +19,45 @@ import (
 
 // SingboxStatusData mirrors frontend SingboxStatus.
 type SingboxStatusData struct {
-	Installed       bool     `json:"installed" example:"true"`
-	Version         string   `json:"version,omitempty" example:"1.9.3"`
-	Running         bool     `json:"running" example:"true"`
-	PID             int      `json:"pid,omitempty" example:"12345"`
-	TunnelCount     int      `json:"tunnelCount" example:"2"`
-	ProxyComponent  bool     `json:"proxyComponent" example:"true"`
-	Features        []string `json:"features,omitempty" example:"with_quic"`
-	CurrentVersion  string   `json:"currentVersion,omitempty" example:"1.13.11"`
-	RequiredVersion string   `json:"requiredVersion" example:"1.13.11"`
-	CurrentSHA256   string   `json:"currentSha256,omitempty" example:"76e67bb07b5c2bf4cef108c2f21a5ffaa684d124c21ffe220fc89b39cf1de934"`
-	RequiredSHA256  string   `json:"requiredSha256,omitempty" example:"76e67bb07b5c2bf4cef108c2f21a5ffaa684d124c21ffe220fc89b39cf1de934"`
-	UpdateAvailable bool     `json:"updateAvailable" example:"false"`
+	Installed        bool     `json:"installed" example:"true"`
+	Version          string   `json:"version,omitempty" example:"1.9.3"`
+	Running          bool     `json:"running" example:"true"`
+	PID              int      `json:"pid,omitempty" example:"12345"`
+	TunnelCount      int      `json:"tunnelCount" example:"2"`
+	ProxyComponent   bool     `json:"proxyComponent" example:"true"`
+	NDMSProxyEnabled bool     `json:"ndmsProxyEnabled" example:"true"`
+	Features         []string `json:"features,omitempty" example:"with_quic"`
+	LastError        string   `json:"lastError,omitempty" example:"+0000 2026-05-14 21:45:56 FATAL[0000] failed to initialize"`
+	CurrentVersion   string   `json:"currentVersion,omitempty" example:"1.13.11"`
+	RequiredVersion  string   `json:"requiredVersion" example:"1.13.11"`
+	CurrentSHA256    string   `json:"currentSha256,omitempty" example:"76e67bb07b5c2bf4cef108c2f21a5ffaa684d124c21ffe220fc89b39cf1de934"`
+	RequiredSHA256   string   `json:"requiredSha256,omitempty" example:"76e67bb07b5c2bf4cef108c2f21a5ffaa684d124c21ffe220fc89b39cf1de934"`
+	UpdateAvailable  bool     `json:"updateAvailable" example:"false"`
+	InstallState  string `json:"installState" example:"outdated_no_space"`
+	RequiredBytes int64  `json:"requiredBytes" example:"32145678"`
+	FreeBytes     int64  `json:"freeBytes" example:"8221456"`
+}
+
+func singboxStatusData(s singbox.Status) SingboxStatusData {
+	return SingboxStatusData{
+		Installed:        s.Installed,
+		Version:          s.Version,
+		Running:          s.Running,
+		PID:              s.PID,
+		TunnelCount:      s.TunnelCount,
+		ProxyComponent:   s.ProxyComponent,
+		NDMSProxyEnabled: s.NDMSProxyEnabled,
+		Features:         s.Features,
+		LastError:        s.LastError,
+		CurrentVersion:   s.CurrentVersion,
+		RequiredVersion:  s.RequiredVersion,
+		CurrentSHA256:    s.CurrentSHA256,
+		RequiredSHA256:   s.RequiredSHA256,
+		UpdateAvailable:  s.UpdateAvailable,
+		InstallState:     s.InstallState,
+		RequiredBytes:    s.RequiredBytes,
+		FreeBytes:        s.FreeBytes,
+	}
 }
 
 // SingboxStatusResponse is the envelope for GET /singbox/status.
@@ -233,7 +260,7 @@ func (h *SingboxHandler) Status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s := h.op.GetStatus(r.Context())
-	response.Success(w, s)
+	response.Success(w, singboxStatusData(s))
 }
 
 // Install handles POST /api/singbox/install.
@@ -264,7 +291,7 @@ func (h *SingboxHandler) Install(w http.ResponseWriter, r *http.Request) {
 	// (e.g. the tunnels-page tab guard) see the change immediately
 	// instead of waiting up to 30s for the next poll tick.
 	publishInvalidated(h.bus, ResourceSysInfo, "singbox-installed")
-	response.Success(w, s)
+	response.Success(w, singboxStatusData(s))
 }
 
 // Update handles POST /api/singbox/update.
@@ -293,7 +320,7 @@ func (h *SingboxHandler) Update(w http.ResponseWriter, r *http.Request) {
 	s := h.op.GetStatus(r.Context())
 	publishInvalidated(h.bus, ResourceSingboxStatus, "updated")
 	publishInvalidated(h.bus, ResourceSysInfo, "singbox-updated")
-	response.Success(w, s)
+	response.Success(w, singboxStatusData(s))
 }
 
 // Control handles POST /api/singbox/control.
@@ -329,7 +356,7 @@ func (h *SingboxHandler) Control(w http.ResponseWriter, r *http.Request) {
 	}
 	s := h.op.GetStatus(r.Context())
 	publishInvalidated(h.bus, ResourceSingboxStatus, "control-"+req.Action)
-	response.Success(w, s)
+	response.Success(w, singboxStatusData(s))
 }
 
 // ListTunnels handles GET /api/singbox/tunnels.
@@ -518,6 +545,48 @@ func (h *SingboxHandler) UpdateTunnel(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, out)
 }
 
+// RenameTunnel handles PATCH /api/singbox/tunnels/rename.
+// Body: {"oldTag":"old","newTag":"new"}.
+func (h *SingboxHandler) RenameTunnel(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		response.MethodNotAllowed(w)
+		return
+	}
+	var body struct {
+		OldTag string `json:"oldTag"`
+		NewTag string `json:"newTag"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request")
+		return
+	}
+	if body.OldTag == "" || body.NewTag == "" {
+		response.BadRequest(w, "oldTag and newTag required")
+		return
+	}
+	h.log.Info("single-rename", body.OldTag, "requested via API")
+	if err := h.op.RenameTunnel(r.Context(), body.OldTag, body.NewTag); err != nil {
+		switch {
+		case errors.Is(err, singbox.ErrInvalidTunnelTag):
+			response.BadRequest(w, err.Error())
+		case errors.Is(err, singbox.ErrTunnelNotFound):
+			response.ErrorWithStatus(w, http.StatusNotFound, err.Error(), "NOT_FOUND")
+		case errors.Is(err, singbox.ErrTunnelTagConflict):
+			response.ErrorWithStatus(w, http.StatusConflict, err.Error(), "TAG_CONFLICT")
+		default:
+			response.InternalError(w, err.Error())
+		}
+		return
+	}
+	publishInvalidated(h.bus, ResourceSingboxTunnels, "tunnel-renamed")
+	out, err := h.enrichedTunnels(r.Context())
+	if err != nil {
+		response.InternalError(w, err.Error())
+		return
+	}
+	response.Success(w, out)
+}
+
 // CheckConnectivity performs connectivity test through a sing-box tunnel.
 //
 //	@Summary		Sing-box tunnel connectivity test
@@ -648,12 +717,25 @@ func resolveTunnelInterfaceFromList(tunnels []singbox.TunnelInfo, tag string) (s
 // Runs download then upload sequentially, keyed by sing-box tunnel tag.
 // Streams events via SSE: phase, interval, result, done, error.
 //
+// Optional `iface` query param overrides the tag→interface resolution
+// (subscription cards use it to test the composite NDMS Proxy
+// interface directly). When NDMS Proxy is globally disabled the
+// override is rejected with 412 PROXY_DISABLED — the t2sN/ProxyN
+// composite interface no longer exists, so iperf against it would
+// silently fail or hang.
+//
 //	@Summary		Sing-box tunnel speed test stream
 //	@Tags			singbox
 //	@Produce		text/event-stream
 //	@Security		CookieAuth
+//	@Param			tag		query	string	true	"Sing-box outbound tag"
+//	@Param			server	query	string	true	"iperf3 server host"
+//	@Param			port	query	int		true	"iperf3 server port"
+//	@Param			iface	query	string	false	"Kernel interface override (NDMS Proxy must be enabled)"
 //	@Success		200	{string}	string	"SSE stream"
 //	@Failure		400	{object}	APIErrorEnvelope
+//	@Failure		404	{object}	APIErrorEnvelope	"Tunnel tag not found"
+//	@Failure		412	{object}	APIErrorEnvelope	"NDMS Proxy disabled — iface override unavailable"
 //	@Failure		500	{object}	APIErrorEnvelope
 //	@Router			/singbox/tunnels/test/speed/stream [get]
 func (h *SingboxHandler) SpeedTestStream(w http.ResponseWriter, r *http.Request) {
@@ -688,7 +770,17 @@ func (h *SingboxHandler) SpeedTestStream(w http.ResponseWriter, r *http.Request)
 	// the tag-to-tunnel lookup in that case — selector outbounds (used by
 	// subscriptions) are filtered out of ListTunnels so a tag lookup
 	// would otherwise 404 on every subscription speedtest attempt.
+	//
+	// But: the override only makes sense when NDMS Proxy is globally on
+	// — t2sN/ProxyN composites do not exist otherwise. Reject directly
+	// rather than letting iperf3 silently hang against a torn-down iface.
 	iface := ifaceOverride
+	if iface != "" && h.settings != nil && !h.settings.IsSingboxNDMSProxyEnabled() {
+		response.ErrorWithStatus(w, http.StatusPreconditionFailed,
+			"NDMS Proxy disabled — iface override unavailable (composite interface no longer exists)",
+			"PROXY_DISABLED")
+		return
+	}
 	if iface == "" {
 		iface, err = h.resolveTunnelInterface(r.Context(), tag)
 		if err != nil {

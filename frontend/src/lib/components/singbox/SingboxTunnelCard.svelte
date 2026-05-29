@@ -83,6 +83,8 @@
 				return 'Shadowsocks';
 			case 'naive':
 				return 'Naive';
+			case 'mieru':
+				return 'Mieru';
 			default:
 				return protocol ? protocol.charAt(0).toUpperCase() + protocol.slice(1) : '—';
 		}
@@ -339,6 +341,7 @@
 	<div class="header header-dense">
 		<div class="header-dense-body">
 			<div class="title-row-dense">
+				<span class="dot {cardState}" aria-hidden="true"></span>
 				<button type="button" class="title title-dense" onclick={edit}>{tunnel.tag}</button>
 			</div>
 			<div class="meta-tags-dense">
@@ -356,9 +359,6 @@
 			</div>
 		</div>
 		<div class="dense-toolbar">
-			<div class="dense-toolbar-top">
-				<span class="dot {cardState}" aria-hidden="true"></span>
-			</div>
 			<div class="dense-toolbar-bottom">
 				<PingButton label={latText} state={cardState} {checking} size="sm" onclick={triggerCheck} />
 			</div>
@@ -461,7 +461,7 @@
 			<TrafficSparkline
 				rxData={trafficSparkSeries.rx}
 				txData={trafficSparkSeries.tx}
-				width={42}
+				responsive
 				height={20}
 			/>
 			<div class="traffic-inline-rates">
@@ -512,12 +512,11 @@
 	class:unknown={cardState === 'unknown'}
 	class:stopped={cardState === 'stopped'}
 >
-	<div class="led-wrap">
+	<div class="title-row">
 		<span class="dot {cardState}" aria-hidden="true"></span>
-		<PingButton label={latText} state={cardState} {checking} onclick={triggerCheck} />
+		<h3 class="title">{tunnel.tag}</h3>
+		<PingButton label={latText} state={cardState} {checking} size="sm" onclick={triggerCheck} />
 	</div>
-
-	<h3 class="title">{tunnel.tag}</h3>
 	<div class="iface">
 		<span>{tunnel.proxyInterface || 'via sing-box'}</span>
 		{#if tunnel.kernelInterface}
@@ -734,9 +733,16 @@
 
 	.title-row-dense {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr);
+		grid-template-columns: auto minmax(0, 1fr);
 		align-items: center;
+		gap: 6px;
 		min-width: 0;
+	}
+
+	.card.view-dense .title-row-dense .dot {
+		width: var(--sbx-status-dot-dense);
+		height: var(--sbx-status-dot-dense);
+		flex: 0 0 auto;
 	}
 
 	.title-dense {
@@ -798,25 +804,14 @@
 		flex-shrink: 0;
 	}
 
-	.dense-toolbar-top {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-
 	.dense-toolbar-bottom {
 		display: flex;
 		align-items: center;
 	}
 
-	.card.view-dense .dense-toolbar-top .dot {
-		width: 6px;
-		height: 6px;
-	}
-
 	.details-dense-cols {
 		display: grid;
-		grid-template-columns: minmax(0, 1.2fr) 4.75rem;
+		grid-template-columns: minmax(0, 1.2fr) 5.75rem;
 		gap: 10px 10px;
 		align-items: start;
 	}
@@ -858,20 +853,6 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		line-height: 1.25;
-	}
-
-	.card.view-dense .actions {
-		gap: 2px;
-		justify-content: center;
-		margin-top: 0;
-		padding: 0;
-		border: none;
-	}
-
-	.card.view-dense .action-btn {
-		padding: 3px 6px;
-		font-size: var(--sbx-card-action-dense);
-		gap: 3px;
 	}
 
 	.card.view-dense .details {
@@ -933,6 +914,12 @@
 		transition: background var(--t-fast) ease, border-color var(--t-fast) ease;
 	}
 
+	.charts-dense .traffic-inline :global(svg.responsive) {
+		flex: 1 1 auto;
+		width: 100%;
+		min-width: 0;
+	}
+
 	.traffic-inline:hover {
 		background: var(--color-bg-hover);
 		border-color: var(--color-border-hover);
@@ -951,7 +938,7 @@
 		gap: 0.06rem;
 		padding-block: 2px;
 		min-width: 0;
-		flex: 1 1 auto;
+		flex: 0 0 auto;
 		font-size: 9px;
 		line-height: 1.1;
 		font-family: var(--font-mono, monospace);
@@ -1040,17 +1027,25 @@
 		height: 30% !important;
 	}
 
-	.led-wrap {
-		position: absolute;
-		top: 12px;
-		right: 12px;
+	.title-row {
 		display: flex;
 		align-items: center;
 		gap: 6px;
+		min-width: 0;
 	}
+
+	.title-row .dot {
+		flex-shrink: 0;
+	}
+
+	.title-row :global(.ping-btn) {
+		flex-shrink: 0;
+		margin-left: auto;
+	}
+
 	.dot {
-		width: 9px;
-		height: 9px;
+		width: var(--sbx-status-dot);
+		height: var(--sbx-status-dot);
 		border-radius: 50%;
 		background: var(--text-muted);
 	}
@@ -1061,9 +1056,14 @@
 
 	.title {
 		margin: 0;
+		min-width: 0;
+		flex: 1 1 auto;
 		font-size: var(--sbx-card-title);
+		line-height: var(--sbx-card-title-line-height);
 		font-weight: 600;
-		padding-right: 90px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.iface {
 		display: flex;
@@ -1091,6 +1091,7 @@
 	.b-hysteria2 { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
 	.b-trojan { background: rgba(244, 63, 94, 0.15); color: #fb7185; }
 	.b-shadowsocks { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+	.b-mieru { background: rgba(20, 184, 166, 0.18); color: #5eead4; }
 	/* Cyan-400 on 15% alpha perceptually washed out against the dark
 	   bg — bump to cyan-300 text with slightly denser background so
 	   NaiveProxy matches the contrast of the other protocol badges. */
@@ -1227,11 +1228,19 @@
 	.actions {
 		display: flex;
 		gap: 6px;
-		justify-content: flex-end;
+		justify-content: center;
+		align-items: center;
 		margin-top: 12px;
 		padding: 10px 0;
-		border-top: 1px solid var(--border);
-		border-bottom: 1px solid var(--border);
+		border-top: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-border);
+	}
+	.card.view-dense .actions {
+		gap: 2px;
+		justify-content: center;
+		margin-top: 0;
+		padding: 0;
+		border: none;
 	}
 	.action-btn {
 		display: inline-flex;
@@ -1242,12 +1251,17 @@
 		font-weight: 500;
 		border: none;
 		background: transparent;
-		color: var(--color-text-muted);
+		color: var(--color-text-secondary);
 		cursor: pointer;
 		border-radius: var(--radius-sm);
 		text-decoration: none;
 		font-family: inherit;
 		transition: background var(--t-fast) ease, color var(--t-fast) ease;
+	}
+	.card.view-dense .action-btn {
+		padding: 3px 6px;
+		font-size: var(--sbx-card-action-dense);
+		gap: 3px;
 	}
 	.action-btn:hover:not(:disabled) {
 		background: var(--color-bg-hover);
@@ -1256,6 +1270,14 @@
 	.action-btn:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+	.action-btn.action-danger:hover:not(:disabled) {
+		color: var(--color-error);
+		background: var(--color-error-tint);
+	}
+	.action-btn.action-test:hover:not(:disabled) {
+		color: var(--color-success);
+		background: var(--color-success-tint);
 	}
 	.chart-section {
 		margin: 0 -14px -12px;
@@ -1268,27 +1290,31 @@
 		justify-content: space-between;
 		align-items: center;
 		width: 100%;
-		padding: 6px 12px;
+		padding: 7px 12px;
 		border: none;
-		background: none;
+		border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+		background: color-mix(in srgb, var(--color-bg-tertiary) 78%, transparent);
+		color: var(--color-text-secondary);
 		cursor: pointer;
 		user-select: none;
 		font: inherit;
-		transition: background var(--t-fast) ease;
+		transition: background var(--t-fast) ease, border-color var(--t-fast) ease;
 	}
 	.chart-header:hover {
-		background: var(--bg-tertiary);
+		background: color-mix(in srgb, var(--color-bg-hover) 82%, transparent);
+		border-bottom-color: var(--color-border-hover);
 	}
 	.chart-label {
 		font-size: var(--sbx-card-note);
-		font-weight: 500;
-		color: var(--color-text-muted);
+		font-weight: 600;
+		color: var(--color-text-secondary);
 		text-transform: uppercase;
-		letter-spacing: 0.03em;
+		letter-spacing: 0.04em;
 	}
 	.chart-chevron {
 		font-size: 14px;
-		color: var(--text-muted);
+		color: var(--color-text-secondary);
+		opacity: 0.85;
 		transition: transform var(--t-fast) ease;
 		transform: rotate(-90deg);
 	}
@@ -1303,7 +1329,7 @@
 	}
 	.chart-body.expanded {
 		max-height: 300px;
-		padding: 0 12px 8px;
+		padding: 8px 12px 8px;
 	}
 
 	/* List row (grid columns set on parent .singbox-tunnel-list-table) */
@@ -1393,14 +1419,5 @@
 	.list-actions .action-btn {
 		justify-content: center;
 		padding: 0.375rem;
-	}
-	.action-danger:hover:not(:disabled),
-	.list-actions :global(.action-danger:hover:not(:disabled)) {
-		color: #ff6b6b;
-		background: rgba(239, 68, 68, 0.18);
-	}
-	.action-btn.action-test:hover:not(:disabled) {
-		color: var(--color-success, #9ece6a);
-		background: var(--color-success-tint, rgba(158, 206, 106, 0.28));
 	}
 </style>

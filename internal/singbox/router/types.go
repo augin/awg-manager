@@ -171,9 +171,13 @@ type DomainResolver struct {
 }
 
 type DNSServer struct {
-	Tag            string          `json:"tag"`
-	Type           string          `json:"type"`
-	Server         string          `json:"server"`
+	Tag  string `json:"tag"`
+	Type string `json:"type"`
+	// Server is omitted when empty so type=local marshals to {"type":"local","tag":"X"}
+	// — sing-box 1.13's `local` server has no `server` field and FATALs the whole
+	// config with `unknown field "server"` if we emit `"server": ""`. Validator
+	// already permits empty Server for type=local (config_dns.go:validateDNSServer).
+	Server         string          `json:"server,omitempty"`
 	ServerPort     int             `json:"server_port,omitempty"`
 	Path           string          `json:"path,omitempty"`
 	Detour         string          `json:"detour,omitempty"`
@@ -186,9 +190,12 @@ type DNSRule struct {
 	DomainSuffix  []string `json:"domain_suffix,omitempty"`
 	Domain        []string `json:"domain,omitempty"`
 	DomainKeyword []string `json:"domain_keyword,omitempty"`
+	DomainRegex   []string `json:"domain_regex,omitempty"`
 	QueryType     []string `json:"query_type,omitempty"`
 	Server        string   `json:"server,omitempty"`
 	Action        string   `json:"action,omitempty"`
+	Rcode         string   `json:"rcode,omitempty"`
+	RejectMethod  string   `json:"method,omitempty"`
 }
 
 type DNS struct {
