@@ -150,12 +150,33 @@ export const SERVICE_PRESETS: ServicePreset[] = [
 		id: 'netflix',
 		name: 'Netflix',
 		domains: [
-			'fast.com', 'netflix.ca', 'netflix.com', 'netflixdnstest1.com', 'netflixdnstest2.com',
+			'fast.com', 'netflix.ca', 'netflix.com', 'netflix.net',
+			'netflixinvestor.com', 'netflixstudios.com', 'netflixtechblog.com',
+			'nflxext.com', 'nflximg.com', 'nflximg.net',
+			'nflxsearch.net', 'nflxso.net', 'nflxvideo.net',
+			'netflixdnstest0.com', 'netflixdnstest1.com', 'netflixdnstest2.com',
 			'netflixdnstest3.com', 'netflixdnstest4.com', 'netflixdnstest5.com',
 			'netflixdnstest6.com', 'netflixdnstest7.com', 'netflixdnstest8.com',
-			'netflixdnstest9.com', 'netflixdnstest10.com', 'netflixinvestor.com', 'netflix.net',
-			'netflixstudios.com', 'netflixtechblog.com', 'nflxext.com', 'nflximg.com',
-			'nflxsearch.net', 'nflxso.net', 'nflxvideo.net',
+			'netflixdnstest9.com', 'netflixdnstest10.com',
+			'amazonaws.com', 'netflix.com.edgesuite.net',
+			// AS2906 Netflix CDN IP ranges
+			'45.57.0.0/17',
+			'64.120.128.0/17',
+			'66.197.128.0/17',
+			'23.246.0.0/18',
+			'66.197.192.0/18',
+			'192.173.64.0/18',
+			'69.53.224.0/19',
+			'198.38.96.0/19',
+			'64.120.240.0/20',
+			'108.175.32.0/20',
+			// Backlot API
+			'52.0.131.132',
+			'3.221.228.214',
+			'18.207.84.236',
+			// Netflix Aspera
+			'23.23.189.144/28',
+			'34.195.253.0/25',
 		],
 	},
 	{
@@ -331,7 +352,6 @@ export const SERVICE_PRESETS: ServicePreset[] = [
 			'184.31.128.0/19',
 			'184.50.128.0/19',
 		],
-
 		notice: 'Содержит широкие IP-ранги Akamai CDN (43 шт) и собственной сети Roblox (4 шт) — необходимы для игр в Roblox, но Akamai-блоки могут направлять в туннель трафик других сайтов.',
 	},
 	{
